@@ -1,0 +1,110 @@
+{
+  "modules": {
+    "alembic": false,
+    "pressure": "IISPH17",
+    "surfaceDistance": false,
+    "volumeBoundary": true,
+    "volumeOutlets": true,
+    "adaptive": true,
+    "movingBoundaries":true,
+    "viscosity": true,
+    "gl_record": false,
+    "error_checking": true,
+    "drag": "Gissler17",
+    "resorting": "mlm",
+    "support":"constrained",
+    "hash_width": "64bit",  
+    "neighborhood": "constrained",
+    "launch_cfg": "device",
+    "density": "standard"
+  },
+  "surfaceDistance": {
+    "distanceFieldDistances": "3.0 3.0 3.0",
+    "level_limit":"-30.f"
+  },
+  "adaptive": {
+    "resolution": 64,
+    "distance": "3.0 3.0 3.0",
+    "delay": 1.0,
+    "blendsteps": 15,
+    "limit": -20.0
+  },
+  "alembics": {
+    "fps": 24
+  },
+  "color_map": {
+    "auto": true,
+    "buffer": "velocity",
+    "min": 50,
+    "max": 0,
+    "map": "viridi"
+  },
+  "inlet_volumes": {
+    "volume1": {
+      "file": "Volumes/Inlet.vdb",
+      "dur": -1,
+      "delay": 0.0,
+      "vel": "-10 25 0 0"
+    }
+  },
+  "outlet_volumes": {
+    "volume1": {
+      "file": "Volumes/Outlet.vdb",
+      "rate": 1350
+    }
+  },
+  "particle_volumess": {
+    "volume1": {
+      "file": "Volumes/Fluid.vdb",
+      "concentration": 0.0,
+      "timeToEmit": 0.0,
+      "kind": "vdb"
+    }
+  },
+  "moving_planes": {
+    "plane1": {
+      "pos": "0 75 0",
+      "norm": "0 1 0",
+      "dir": "0 -1 0",
+      "mag": 20,
+      "freq": 0.1
+    }
+  },
+  "boundary_volumess": {
+    "volume1": {
+      "file": "Volumes/pillars.vdb"
+    }
+  },
+  "particle_settings": {
+    "viscosity": 42.5,
+    "tension_akinci": 0.125,
+    "tension": 0.1,
+    "gravity": 9.81,
+    "radius": 0.45,
+    "density": 998,
+    "air_velocity": "0 0 0"
+  },
+  "IISPH": {
+    "eta": 0.0001
+  },
+  "render_settings": {
+    "render_clamp": "0 0 0",
+    "camera_position": "20.8442 -0.386538 -113.607", 
+    "camera_angle": "-14.5 0 90", 
+    "resolution": "1920 1080",
+    "gl_file": "adapt_break2.mp4"
+  },
+  "simulation_settings": {
+    "densitySteps":5,
+    "boundaryObject": "Objects/domain.obj",
+    "domainWall": "xyz-",
+    "domainWalls": "x+-y+-z+-",
+    "numptcls": 790000,
+    "auto_boundary": "true",
+    "boundaryDampening": 0.999,
+    "timestep_min": 0.0001,
+    "timestep_max": 0.01,
+    "neighborlimit": 70,
+    "external_force": "0 0 -9.8 0"
+  }
+}
