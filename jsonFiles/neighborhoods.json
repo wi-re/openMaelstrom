@@ -1,0 +1,85 @@
+{
+  "functions":{
+    "constrained_neighborlist": {
+      "description": "Module used to create a Constrained NeighborList based on the original paper. Fairly slow for adaptive simulations.",
+      "folder": "neighborhood",
+      "name": "ConstrainedNeighborList",
+      "cell_info": true,
+      "neighbor_info": false,
+      "units": true,
+      "functions": [ "calculate_neighborlist" ],
+      "depends_any": [ { "neighborhood": "constrained" } ],
+      "parameters": [ "omega", "overhead_size", "target_neighbors", "support_leeway", "error_factor", "resort_algorithm", "neighborlimit" ],
+      "input": [ "volume" ],
+      "output": [ "position", "neighborList", "neighborListLength" ],
+      "temporary": [ "closestNeighbor", "supportEstimate", "support", "supportMarker", "supportMarkerCompacted", "neighborListSwap", "neighborOverhead", "neighborOverheadCount" ]
+    },
+    "cell_neighborlist": {
+      "description": "Module used to create neighborlists of particles based on spans of particle indices. One span per neighboring cell per particle.",
+      "folder": "neighborhood",
+      "name": "spanNeighborList",
+      "cell_info": true,
+      "neighbor_info": false,
+      "units": true,
+      "functions": [ "calculate_neighborlist" ],
+      "depends_any": [ { "neighborhood": "cell_based" } ],
+      "input": [ "volume" ],
+      "output": [ "spanNeighborList", "position", "neighborListLength" ]
+    },
+    "basic_neighborlist": {
+      "description": "Module used to create a basic unconstrained neighborlist of particles.",
+      "folder": "neighborhood",
+      "name": "BasicNeighborList",
+      "cell_info": true,
+      "neighbor_info": false,
+      "units": true,
+      "parameters": [ "neighborlimit" ],
+      "functions": [ "calculate_neighborlist" ],
+      "depends_any": [ { "neighborhood": "basic" } ],
+      "input": [ "volume", "position" ],
+      "output": [ "neighborList", "neighborListLength" ]
+    }
+  },
+  "arrays":{ 
+    "structureArrays":{
+      "spanNeighborList": {
+        "description": "Contains the spans of candidate neighbors of all particles. At most this could contain 27 entries and the end marker. The spans work similar to hash_span and cell_span.",
+        "type": "neigh_span",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "cell_based" } ],
+        "size": 28
+      },
+      "neighborList": {
+        "description": "Contains the real neighbors of all particles as their indices plus an end marker entry.",
+        "type": "int32_t",
+        "unit": "none",
+        "depends_any": [
+          { "neighborhood": "constrained" },
+          { "neighborhood": "basic" }
+        ],
+        "kind": "particleData",
+        "size": "get<parameters::neighborlimit>()"
+      },
+      "neighborListLength": {
+        "description": "Contains the number of neighbors of a particle, could be implicitly replaced by using the end marker but this option provides faster execution due to using for instead of while loops.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData",
+        "size": 1,
+        "swap": true,
+        "resort": true
+      }
+    }
+  },
+  "uniforms":{
+    "modules":{
+      "neighborhood": {
+        "identifier": "neighborhood",
+        "name": "Used to select the neighborhood search algorithm. constrained, basic and cell_based are valid options.",
+        "type": "std::string",
+        "default": "constrained"
+      }
+    }
+  }
+}    

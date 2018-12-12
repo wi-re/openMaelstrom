@@ -1,0 +1,17 @@
+#pragma once
+#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
+#include <iostream>
+//#include <nvfunctional>
+#include <regex>
+#include <tbb/blocked_range.h> 
+#include <tbb/parallel_for.h> 
+#include <utility/cuda/cache.h>
+#include <utility/cuda/error_handling.h>
+#include <utility/helpers/color.h>
+#include <utility/helpers/log.h>
+#include <utility/helpers/timer.h>
+#include <utility/cuda.h>
+#include <utility/launcher/compute_launcher.h>
+#include <utility/launcher/launch_functions.h>
+#include <utility/launcher/macro.h>

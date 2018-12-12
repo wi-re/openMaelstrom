@@ -1,0 +1,88 @@
+ {
+  "functions":{
+    "iisph17": {
+      "description": "Module used to implement an Implicit Incompressible SPH (IISPH) Solver modified from the updated IISPH paper.",
+      "folder": "pressure",
+      "name": "IISPH17",
+      "target": "cuda",
+      "units": true,
+      "cell_info": false,
+      "virtual_info": true,
+      "boundaryInfo": true, 
+      "neighbor_info": true,
+      "functions": [ "pressure_solve" ],
+      "depends_any": [ { "pressure": "IISPH17" } ],
+      "parameters": [ "eta", "iterations", "density_error"],
+      "input": [ "position", "density", "volume" ],
+      "temporary": [ "iisphVolume", "iisphSource", "iisphAii", "iisphVolumeError", "iisphOmega", "iisphAcceleration" ],
+      "output": [ "acceleration", "velocity" ],
+      "swap": [ "pressure" ]
+    }
+  },
+  "arrays":{
+    "iisph17Arrays": {
+      "iisphSource": {
+        "description": "Source term used for solving IISPH.",
+        "type": "float",
+        "unit": "void",
+        "depends_any": [
+          { "pressure": "IISPH17" },
+          { "pressure": "densityMapIISPH" }
+        ],
+        "kind": "particleData"
+      },
+      "iisphOmega": {
+        "description": "Corrective term used to adjust the solver for changing support radii.",
+        "type": "float",
+        "unit": "void",
+        "depends_any": [
+          { "pressure": "IISPH17" },
+          { "pressure": "densityMapIISPH" }
+        ],
+        "kind": "particleData"
+      },
+      "iisphVolume": {
+        "description": "Contains the actual volume of a sample V_i = (V_0 / rho_i).",
+        "type": "float",
+        "unit": "SI::volume",
+        "depends_any": [
+          { "pressure": "IISPH17" },
+          { "pressure": "densityMapIISPH" }
+        ],
+        "kind": "particleData"
+      },
+      "iisphAii": {
+        "description": "Diagonal elements of the matrix used to solve for incompressibility.",
+        "type": "float",
+        "unit": "SI::derived_unit<SI::recip<SI::Pa>>",
+        "depends_any": [ 
+          { "pressure": "IISPH17" },
+          { "pressure": "densityMapIISPH" }
+        ],
+        "kind": "particleData"
+      },  
+      "iisphAcceleration": {
+        "description": "Diagonal elements of the matrix used to solve for incompressibility.",
+        "type": "float4",
+        "unit": "SI::acceleration",
+        "depends_any": [
+          { "pressure": "IISPH17" },
+          { "pressure": "densityMapIISPH" }
+        ],
+        "kind": "particleData"
+      },
+      "iisphVolumeError": {
+        "description": "Error of the incompressibility solver used as a threshold.",
+        "type": "float",
+        "unit": "void",
+        "depends_any": [
+          { "pressure": "IISPH17" },
+          { "pressure": "densityMapIISPH" }
+        ],
+        "kind": "particleData"
+      }
+    }
+  },
+  "uniforms":{    
+  }
+}    

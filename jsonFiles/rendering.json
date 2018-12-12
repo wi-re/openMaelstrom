@@ -1,0 +1,144 @@
+{
+  "functions":{
+    "visualization": {
+      "description": "Module used to map simulation data (per particlle values) to a range of 0 to 1 for rendering.",
+      "folder": "visualization",
+      "name": "Visualizer",
+      "cell_info": false,
+      "neighbor_info": false,
+      "functions": [ "visualizeParticles" ],
+      "parameters": [],
+      "input": [ "position" ],
+      "output": [ "renderIntensity" ]
+    }
+  },
+  "arrays":{
+  },
+  "uniforms":{
+    "render_settings": {
+      "render_clamp": {
+        "identifier": "render_clamp",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float3",
+        "unit": "none",
+        "default": "0.f,0.f,0.f",
+        "const": false,
+        "range": {
+          "min": "-1.f,-1.f,-1.f",
+          "max": "1.f,1.f,1.f",
+          "step": "0.01f,0.01f,0.01f"
+        }
+      },
+      "camera_position": {
+        "identifier": "camera_position",
+        "name": "Camera position in world coordinates. Useful value: {125 0 -50}",
+        "type": "float3",
+        "unit": "SI::m",
+        "default": "125, 0, -50",
+        "const": false,
+        "range": {
+          "min": "-1000.f,-1000.f,-1000.f",
+          "max": "1000.f,1000.f,1000.f",
+          "step": "1.f,1.f,1.f"
+        }
+      },
+      "camera_angle": {
+        "identifier": "camera_angle",
+        "name": "Angle of the camera (based on houdinis representation of cameras). Useful value: {-90 0 90}.",
+        "type": "float3",
+        "unit": "none",
+        "default": "-90, 0, 90",
+        "const": false,
+        "range": {
+          "min": "-360.f,-360.f,-360.f",
+          "max": "360.f,360.f,360.f",
+          "step": "0.5f,0.5f,0.5f"
+        }
+      },
+      "camera_resolution": {
+        "identifier": "camera_resolution",
+        "name": "Resolution of the render window. Currently not used.",
+        "type": "float2",
+        "unit": "none",
+        "default": "1920, 1080",
+        "const": true
+      },
+      "camera_fps": {
+        "identifier": "camera_fps",
+        "name": "FPS target for the export from the openGL viewport into a file.",
+        "type": "float",
+        "unit": "none",
+        "default": "60.f",
+        "const": false
+      },
+      "gl_file": {
+        "identifier": "gl_file",
+        "name": "File the openGL viewport should be rendered into.",
+        "type": "std::string",
+        "unit": "none",
+        "default": "gl.mp4",
+        "const": true
+      }
+    },
+    "color_map": {
+      "min": {
+        "identifier": "render_min",
+        "name": "Represents the lower boundary of the color mapping. Useful values depend on what is being visualized.",
+        "type": "float",
+        "unit": "none",
+        "default": "0.f",
+        "const": false,
+        "range": {
+          "min": "-100.f",
+          "max": "100.f",
+          "step": "0.5f"
+        }
+      },
+      "max": {
+        "identifier": "render_max",
+        "name": "Represents the upper boundary of the color mapping. Useful values depend on what is being visualized.",
+        "type": "float",
+        "unit": "none",
+        "default": "1.f",
+        "const": false,
+        "range": {
+          "min": "-100.f",
+          "max": "100.f",
+          "step": "0.5f"
+        }
+      },
+      "auto": {
+        "identifier": "render_auto",
+        "name": "Used to enable/disable automatically scaling the visualization range to the full input range.",
+        "type": "bool",
+        "unit": "none",
+        "default": true,
+        "const": false
+      },
+      "map_flipped": {
+        "identifier": "map_flipped",
+        "name": "Used to enable/disable automatically scaling the visualization range to the full input range.",
+        "type": "int",
+        "unit": "none",
+        "default": 0,
+        "const": false
+      },
+      "buffer": {
+        "identifier": "render_buffer",
+        "name": "Contains the name of the array that should be visualized, e.g. density.",
+        "type": "std::string",
+        "unit": "none",
+        "default": "density",
+        "const": false
+      },
+      "map": {
+        "identifier": "render_colormap",
+        "name": "Path to a file that contains the color map used for visualization.",
+        "type": "std::string",
+        "unit": "none",
+        "default": "inferno",
+        "const": false
+      }
+    }    
+  }
+}    

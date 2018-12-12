@@ -1,0 +1,131 @@
+{
+  "functions":{
+    "iisph": {
+      "description": "Module used to implement an Implicit Incompressible SPH (IISPH) Solver modified from the original IISPH paper.",
+      "folder": "pressure",
+      "name": "IISPH",  
+      "target": "cuda",
+      "units": true,
+      "cell_info": false,
+      "neighbor_info": true,
+      "functions": [ "pressure_solve" ],
+      "depends_any": [ { "pressure": "IISPH" } ],
+      "parameters": [ "boundaryCounter", "boundaryDampening", "eta", "iterations", "density_error", "jacobi_omega" ],
+      "input": [ "position", "density", "volume", "boundaryPlanes", "lifetime" ],
+      "temporary": [ "iisphSum", "iisphDii", "iisphAiiOld", "kernelBuffer", "iisphDensityAdvection", "iisphDensityIteration" ],
+      "output": [ "acceleration" ],
+      "swap": [ "pressure", "velocity" ]
+    }
+  },
+  "arrays":{
+    "iisphArrays": {
+      "iisphSum": {
+        "description": "Contains the sum element of the pressure forces (sum_j d_ij p_j).",
+        "type": "float4",
+        "unit": "SI::m",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "iisphDii": {
+        "description": "Contains the diagional elements of the pressure force d_ii",
+        "type": "float4",
+        "unit": "SI::derived_unit<SI::m, SI::recip<SI::Pa>>",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "iisphAiiOld": {
+        "description": "Contains the diagonal elements of the incompressibility matrix.",
+        "type": "float",
+        "unit": "SI::derived_unit< SI::density, SI::recip<SI::Pa>>",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "omega": {
+        "description": "Corrective term used to adjust the solver for changing support radii.",
+        "type": "float",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "alpha": {
+        "description": "Temporary value used to improve the performance.",
+        "type": "float",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "gamma": {
+        "description": "Temporary value used to improve the performance.",
+        "type": "float",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "sigma": {
+        "description": "Temporary value used to improve the performance.",
+        "type": "float",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "iisphDensityAdvection": {
+        "description": "Estimated density of a particle after it has been influenced by advection forces.",
+        "type": "float",
+        "unit": "SI::density",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "iisphDensityIteration": {
+        "description": "Density of a particle in the current iteration of the incompressibility solver.",
+        "type": "float",
+        "unit": "void",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "kernelBuffer": {
+        "description": "Temporary value used to improve the performance.",
+        "type": "float4",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      },
+      "velocityAdvection": {
+        "description": "Velocity of a particle including influence of advection forces.",
+        "type": "float4",
+        "unit": "SI::velocity",
+        "depends_any": [ { "pressure": "IISPH" } ],
+        "kind": "particleData"
+      }
+    } 
+  },
+  "uniforms":{
+    "iisph_settings": {
+      "density_error": {
+        "identifier": "density_error",
+        "name": "Contains the average density error of the last solve step in percent.",
+        "type": "float",
+        "const": false,
+        "unit": "none",
+        "default": "0.f"
+      },
+      "iterations": {
+        "identifier": "iterations",
+        "name": "Contains the number of iterations for the IISPH solver.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "eta": {
+        "identifier": "eta",
+        "name": "Maximum average density error allowed for the incompressibility solver in percent. Useful value: 0.01f.",
+        "type": "float",
+        "unit": "none",
+        "default": "0.1f"
+      },
+      "jacobi_omega": {
+        "identifier": "jacobi_omega",
+        "name": "Relaxation factor for the relaxed jacobi solvler. Useful value: 0.5f.",
+        "type": "float",
+        "unit": "none",
+        "const": false,
+        "default": "0.2f"
+      }
+  }
+    
+  }
+}    

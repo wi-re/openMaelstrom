@@ -1,0 +1,297 @@
+{
+  "functions":{
+    "gravity": {
+      "description": "Module used to add external forces (currently only gravity) in the simulation.",
+      "folder": "convection",
+      "name": "External",
+      "units": true,
+      "cell_info": false,
+      "neighbor_info": false,
+      "functions": [ "gravity_force" ],
+      "parameters": [ "external_force" ],
+      "output": [ "acceleration" ]
+    },
+    "XSPH": {
+      "description": "Module provind an XPSH viscosity. The XSPH viscosity is increased in strength for particles created from splitting to act as a secondary level of blending.",
+      "folder": "convection",
+      "name": "XSPH",
+      "units": true,
+      "virtual_info": true,
+      "cell_info": false,
+      "boundaryInfo": true,
+      "neighbor_info": true,
+      "depends_any": [ { "xsph": true } ],
+      "functions": [ "viscosity" ],
+      "parameters": [ "xsph_viscosity", "blendsteps" ],
+      "input": [ "position", "density", "volume", "lifetime" ],
+      "swap": [ "velocity" ]
+    },
+    "monaghanViscosity": {
+      "description": "Module provind an artificial viscosity. The artificial viscosity is increased in strength for particles created from splitting to act as a secondary level of blending.",
+      "folder": "convection",
+      "name": "Viscosity",
+      "units": true,
+      "neighbor_info": true,
+      "depends_any": [ { "viscosity": true } ],
+      "functions": [ "viscosity" ],
+      "parameters": [ "monaghan_viscosity", "blendsteps" ],
+      "input": [ "position", "density", "volume", "velocity", "lifetime" ],
+      "output": [ "acceleration" ] 
+    },
+    "AkinciTension": {
+      "description": "Module used to provide surface tension based on the approaches by Akinci et. al.",
+      "folder": "convection",
+      "name": "AkinciTension",
+      "units": true,
+      "virtual_info": true,
+      "neighbor_info": true,
+      "depends_any": [ { "tension": "Akinci" } ],
+      "functions": [ "tension" ],
+      "parameters": [ "tension_akinci" ],
+      "input": [ "velocity", "position", "density", "volume" ],
+      "output": [ "acceleration" ],
+      "temporary": [ "particleNormal" ]
+    },
+    "BenderVorticity": {
+      "description": "Module used to provide a micropolar model for SPH to improve the vorticity of the simulation.",
+      "folder": "convection",
+      "name": "BenderVorticity",
+      "units": true,
+      "neighbor_info": true,
+      "depends_any": [ { "vorticity": "Bender17" } ],
+      "functions": [ "vorticity" ],
+      "parameters": [ "intertia_inverse", "vorticity_viscosity", "vorticity_nu_t", "tension_akinci" ],
+      "input": [ "velocity", "position", "density", "volume" ],
+      "output": [ "acceleration" ],
+      "swap": [ "angularVelocity" ]
+    },
+    "GisslerDrag": {
+      "description": "Module used to provide air drag forces for particles to improve streams and overall behaviour of the simulaltion.",
+      "folder": "convection",
+      "name": "GisslerDrag",
+      "units": true,
+      "neighbor_info": true,
+      "depends_any": [ { "drag": "Gissler17" } ],
+      "functions": [ "drag" ],
+      "parameters": [ "air_velocity", "tension_akinci" ],
+      "input": [ "velocity", "position", "density", "volume" ],
+      "output": [ "acceleration" ]
+    }
+  },
+  "arrays":{
+    "advectionArrays": {
+      "maxVelocity": {
+        "description": "Contains the length of the velocity of each particle, used in a reduce operation to determine the ideal timestep.",
+        "unit": "SI::velocity",
+        "type": "float",
+        "kind": "particleData"
+      },
+      "cflValue": {
+        "description": "Contains the length of the velocity of each particle, used in a reduce operation to determine the ideal timestep.",
+        "unit": "SI::s",
+        "type": "float",
+        "kind": "particleData"
+      },
+      "particleNormal": {
+        "description": "Normal of the particle calculated to determine the surface tension of a particle.",
+        "depends_any": [ { "tension": "Akinci" } ],
+        "type": "float4",
+        "kind": "particleData"
+      },
+      "angularVelocity": {
+        "description": "Contains the angular velocity of a particle, used to improve the vorticity of the simulaiton.",
+        "depends_any": [ { "vorticity": "Bender17" } ],
+        "unit": "SI::velocity",
+        "type": "float4",
+        "kind": "particleData",
+        "size": 1,
+        "swap": true,
+        "resort": true
+      }
+    }
+  },
+  "uniforms":{
+    "modules":{
+      "pressure": {
+        "identifier": "pressure",
+        "name": "Used to select the incompressibility solver. IISPH, IISPH17 and DFSPH are valid options.",
+        "type": "std::string",
+        "default": "IISPH"
+      },
+      "volumeBoundary": {
+        "identifier": "volumeBoundary",
+        "name": "Used to enable/disable openVDB based rigid objects.",
+        "type": "bool",
+        "default": true
+      },
+      "xsph": {
+        "identifier": "xsph",
+        "name": "Used to enable/disable XSPH viscosity forces.",
+        "type": "bool",
+        "default": true
+      },
+      "drag": {
+        "identifier": "drag",
+        "name": "Used to enable/disable air drag forces.",
+        "type": "std::string",
+        "default": "Gissler17"
+      },
+      "viscosity": {
+        "identifier": "viscosity",
+        "name": "Used to enable/disable artificial viscosity, helps with adaptivity.",
+        "type": "bool",
+        "default": false
+      },
+      "tension": {
+        "identifier": "tension",
+        "name": "Used to select the surface tension algorithm. Akinci and none are valid options.",
+        "type": "std::string",
+        "default": "Akinci"
+      },
+      "vorticity": {
+        "identifier": "vorticity",
+        "name": "Used to select the Vorticity algorithm. Bender17 and none are valid options.",
+        "type": "std::string",
+        "default": "Bender17"
+      }
+    },
+    "particle_settings":{
+      "viscosity": {
+        "identifier": "monaghan_viscosity",
+        "name": "Artificial viscosity strength parameter. Useful value: 15.f.",
+        "type": "float",
+        "unit": "SI::velocity",
+        "default": "15.f",
+        "const": false,
+        "range": {
+          "min": "0.000f",
+          "max": "50.f",
+          "step": "0.1f"
+        }
+      },
+      "intertia_inverse": {
+        "identifier": "intertia_inverse",
+        "name": "Parameter used for the micropolar SPH model. Useful value: 0.5f.",
+        "type": "float",
+        "default": "0.5f",
+        "const": false,
+        "unit": "none",
+        "range": {
+          "min": "0.000f",
+          "max": "1.f",
+          "step": "0.01f"
+        }
+      },
+      "vorticity_viscosity": {
+        "identifier": "vorticity_viscosity",
+        "name": "Parameter used for the micropolar SPH model. Useful value: 0.1f.",
+        "type": "float",
+        "default": "0.1f",
+        "const": false,
+        "unit": "none",
+        "range": {
+          "min": "0.000f",
+          "max": "1.f",
+          "step": "0.01f"
+        }
+      },
+      "vorticity_nu_t": {
+        "identifier": "vorticity_nu_t",
+        "name": "Parameter used for the micropolar SPH model. Useful value: 0.05f.",
+        "type": "float",
+        "default": "0.05f",
+        "const": false,
+        "unit": "none",
+        "range": {
+          "min": "0.000f",
+          "max": "1.f",
+          "step": "0.01f"
+        }
+      },
+      "xsph_viscosity": {
+        "identifier": "xsph_viscosity",
+        "name": "XSPH viscosity strenght parameter. Useful value: 0.05f.",
+        "type": "float",
+        "default": "0.05f",
+        "const": false,
+        "unit": "none",
+        "range": {
+          "min": "0.000f",
+          "max": "1.f",
+          "step": "0.01f"
+        }  
+      },
+      "tension_akinci": {
+        "identifier": "tension_akinci",
+        "name": "Strength of the surface tension for the akinci based surface tension model. Useful value: 0.1f.",
+        "type": "float",
+        "const": false,
+        "unit": "SI::acceleration",
+        "default": "0.015f",
+        "range": {
+          "min": "0.000f",
+          "max": "2.f",
+          "step": "0.01f"
+        }    
+      },
+      "air_velocity":{ 
+          "identifier": "air_velocity",
+          "name": "Global air velocity of the simulation for air drag effects. Useful value: {0,0,0,0}.",
+          "type": "float4",
+          "const": false,
+          "unit": "SI::velocity",
+          "default": "1.f,0.f,0.f,0.f",
+          "range": {
+          "min": "-10.f,-10.f,-10.f,0.f",
+          "max": "10.f,10.f,10.f,0.f",
+          "step": "0.01f,0.01f,0.01f,0.f"
+          }      
+        }
+
+    },
+    "simulation_settings":{
+      "external_force": {
+        "identifier": "external_force",
+        "name": "External force being applied to the particles, e.g. gravity. Useful value: {0,0,-9.81,0}",
+        "type": "float4",
+        "default": "0.f,0.f,-9.81f,0.f",
+        "unit": "SI::acceleration",
+        "const": false,
+        "range": { 
+          "min": "-10.f,-10.f,-10.f,0.f",
+          "max": "10.f,10.f,10.f,0.f",
+          "step": "0.01f,0.01f,0.01f,0.f"
+        }
+      },
+      "timestep_min": {
+        "identifier": "timestep_min",
+        "name": "Lowest allowed timestep for the simulation. Useful value: 0.001f",
+        "type": "float",
+        "default": "0.001f",
+        "unit": "SI::s",
+        "visible": true,
+        "const": false,
+        "range": {
+          "min": "0.001f",
+          "max": "0.01f",
+          "step": "0.001f"
+        },
+        "presets": [ "0.001f", "0.01f", "0.02f" ]
+      },
+      "timestep_max": {
+        "identifier": "timestep_max",
+        "name": "Largest allowed timestep for the simulation. Useful value: 0.01f",
+        "type": "float",
+        "default": "0.01f",
+        "visible": true,
+        "const": false,
+        "unit": "SI::s",
+        "range": {
+          "min": "0.001f",
+          "max": "0.01f",
+          "step": "0.001f"
+        }
+      }
+    }
+  }
+}     

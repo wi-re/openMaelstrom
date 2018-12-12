@@ -1,0 +1,256 @@
+{
+  "functions": {
+    "cluster": {
+      "description": "Module used to implement a simple resorting algorithm that uses a cell entry for every actual cell in the domain. Does not support infinite domains.",
+      "folder": "resort",
+      "name": "cluster",
+      "cell_info": true,
+      "neighbor_info": true,
+      "resort": false,
+      "units": true,
+      "functions": [ "clusterParticles" ],
+      "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size" ],
+      "input": [ "position" ],
+      "output": [ "classification" ]
+    },
+    "resort": {
+      "description": "Module used to implement a simple resorting algorithm that uses a cell entry for every actual cell in the domain. Does not support infinite domains.",
+      "folder": "resort",
+      "name": "Resort",
+      "cell_info": false,
+      "neighbor_info": false,
+      "resort": true,
+      "units": true,
+      "functions": [ "resortParticles" ],
+      "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size" ],
+      "depends_any": [ { "sorting": "linear_cell" } ],
+      "input": [ "position" ],
+      "output": [ "cellBegin", "cellEnd", "resortIndex", "particleparticleIndex" ]
+    },
+    "resort_mlm": {
+      "description": "Module used to implement a compact hashing style resorting algorithm on GPUs with 64 bit indices, limiting the domain to 2,097,152^3 cells. Additionally implements a multi level scheme that creates multiplle hash tables for a much faster adaptive simulaiton.",
+      "folder": "resort",
+      "name": "resort_mlm",
+      "cell_info": true,
+      "neighbor_info": false,
+      "resort": true,
+      "units": false,
+      "functions": [ "resortParticles" ],
+      "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size", "resort_algorithm", "hash_entries", "min_coord" ],
+      "depends_any": [
+        { "sorting": "MLM" },
+        { "sorting": "hashed_cell" }
+      ],
+      "input": [ "position" ],
+      "temporary": [ "resortIndex", "particleparticleIndex", "ZOrder_64", "ZOrder_32", "cellSpanSwap", "cellparticleIndex", "compactparticleIndex", "resortArray", "resortArray4" ],
+      "output": [ "cellSpan", "hashMap", "MLMResolution" ]
+    }
+  },
+  "arrays":{
+    "structureArrays": {
+      "classification": {
+        "description": "Used to store keys for resorting algorithms, e.g. a Z-Order Index in resort/resort. Required by all sorting methods in some way but used differently by them.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData"
+      },
+      "resortIndex": {
+        "description": "Used to store keys for resorting algorithms, e.g. a Z-Order Index in resort/resort. Required by all sorting methods in some way but used differently by them.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData"
+      },
+      "ZOrder_64": {
+        "description": "Stores the Morton Code of particles for hashed based restorting algorithms, this version allows for 64 bit Z-Ordering (21 bit per dimension resolution)",
+        "type": "int64_t",
+        "unit": "none",
+        "depends_any": [
+          { "sorting": "hashed_cell" },
+          { "sorting": "MLM" }
+        ],
+        "kind": "particleData"
+      },
+      "ZOrder_32": {
+        "description": "Stores the Morton Code of particles for hashed based restorting algorithms, this version allows for 32 bit Z-Ordering (10 bit per dimension resolution)",
+        "type": "int32_t",
+        "unit": "none",
+        "depends_any": [
+          { "sorting": "hashed_cell" },
+          { "sorting": "MLM" }
+        ],
+        "kind": "particleData"
+      },
+      "cellSpanSwap": {
+        "description": "Stores information about used cells with one entry per particle. Cell Spans consist of a .beginning and .length entry that can be used to iterate over the particles within a cell. For MLM cellSpan is used as a temporary array only.",
+        "type": "cell_span",
+        "unit": "none",
+        "depends_any": [
+          { "sorting": "hashed_cell" },
+          { "sorting": "MLM" }
+        ],
+        "kind": "particleData",
+        "size": 1
+      },
+      "cellSpan": {
+        "description": "Same functionality as cellSpan but is allocated to a multiple of the particle count based on the mlm scheme count.",
+        "type": "cell_span",
+        "unit": "none",
+        "depends_any": [
+          { "sorting": "hashed_cell" },
+          { "sorting": "MLM" }
+        ],
+        "kind": "particleData",
+        "size": "get<parameters::mlm_schemes>()"
+      },
+      "MLMResolution": {
+        "description": "Stores the resolution level of a particle when using MLM resorting.",
+        "type": "int32_t",
+        "unit": "none",
+        "depends_any": [
+          { "sorting": "hashed_cell" },
+          { "sorting": "MLM" }
+        ],
+        "kind": "particleData"
+      },
+      "cellparticleIndex": {
+        "description": "Stores the cell index of all particles, including duplicates. Size = number of particles + 1.",
+        "type": "int32_t",
+        "unit": "none",
+        "depends_any": [
+          { "sorting": "hashed_cell" },
+          { "sorting": "MLM" }
+        ],
+        "kind": "particleData"
+      },
+      "compactparticleIndex": {
+        "description": "Compacted version of cellparticleIndex only containing unique entries. Size = number of particles + 1.",
+        "type": "int32_t",
+        "unit": "none",
+        "depends_any": [
+          { "sorting": "hashed_cell" },
+          { "sorting": "MLM" }
+        ],
+        "kind": "particleData"
+      },
+      "hashMap": {
+        "description": "Similar to cellSpan, however: hashMap is not used by MLM sorting at all.",
+        "type": "hash_span",
+        "unit": "none",
+        "depends_any": [
+          { "sorting": "MLM" },
+          { "sorting": "hashed_cell" }
+        ],
+        "kind": "singleData",
+        "size": "get<parameters::mlm_schemes>() * get<parameters::hash_entries>()"
+      },
+      "particleparticleIndex": {
+        "description": "Used for creating indices from 0:n for resorting with key-value sorting algorithms.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData"
+      },
+      "cellBegin": {
+        "description": "Contains the first particle that is contained within a cell. This is as large as the domain as no compacting is done here. If the entry is -1 then there are no particles in this cell.",
+        "type": "int32_t",
+        "unit": "none",
+        "depends_any": [ { "sorting": "linear_cell" } ],
+        "kind": "cellData"
+      },
+      "cellEnd": {
+        "description": "Similalr to cellBegin. Contains the last particle that is contained within a cell.",
+        "type": "int32_t",
+        "unit": "none",
+        "depends_any": [ { "sorting": "linear_cell" } ],
+        "kind": "cellData"
+      }
+    }
+  },
+  "uniforms":{
+    "modules":{
+      "resorting": {
+        "identifier": "sorting",
+        "name": "Used to select the underlying sorting algorithm. linear_cell and hashed_cell are valid options.",
+        "type": "std::string",
+        "default": "hashed_cell"
+      },
+      "hash_width": {
+        "identifier": "hash_width",
+        "name": "Used to select the length of Morton codes being used. 32bit and 64bit are valid options, MLM requires 64bit. ",
+        "type": "std::string", 
+        "default": "64bit"
+      },
+      "alembic": {
+        "identifier": "alembic_export",
+        "name": "Used to enable/disable exporting particles to alembic files.",
+        "type": "bool",
+        "default": false
+      },
+      "error_checking": {
+        "identifier": "error_checking",
+        "name": "Used to enable/disable correct error checking after each kernel call which introduces some overhead.",
+        "type": "bool",
+        "default": false
+      },    
+      "gl_record": {
+        "identifier": "gl_record",
+        "name": "Used to enable/disable recording of the gl viewport into a file.",
+        "type": "bool",
+        "default": false
+      },
+      "launch_cfg": {
+        "identifier": "launch_cfg",
+        "name": "Used to select where the code should be run. Valid options are: gpu (runs almost everything on the gpu), cpu (runs almost everything on the cpu) and debug (same as cpu but single threaded).",
+        "type": "std::string",
+        "default": "device",
+        "visible": true
+      },
+      "regex_cfg": {
+        "identifier": "regex_cfg",
+        "name": "Used to select where the code should be run. Valid options are: gpu (runs almost everything on the gpu), cpu (runs almost everything on the cpu) and debug (same as cpu but single threaded).",
+        "type": "bool",
+        "default": false,
+        "const": false,
+        "visible": true
+      }
+    },
+    "resort": {
+      "algorithm": {
+        "identifier": "resort_algorithm",
+        "name": "Internal value to keep track of the sorting algorithm being used, deprecated.",
+        "type": "int",
+        "unit": "none",
+        "default": "0"
+      },
+      "valid_cells": {
+        "identifier": "valid_cells",
+        "name": "Value that represents the number of occupied hash cells (on all hash levels)",
+        "type": "int",
+        "unit": "none",
+        "default": "0"
+      },
+      "collision_cells": {
+        "identifier": "collision_cells",
+        "name": "Value that represents the number of hash cells that contain collisions (on all hash levels)",
+        "type": "int",
+        "unit": "none",
+        "default": "0"
+      }
+    },
+    "alembic": {
+      "file_name": {
+        "identifier": "alembic_file_name",
+        "name": "File name scheme to export the particle data to. $f in the name marks a wildcard for the frame number, e.g. export/alembic_$f.abc",
+        "type": "std::string",
+        "unit": "none",
+        "default": "export/alembic_$f.abc"
+      },
+      "fps": {
+        "identifier": "alembic_fps",
+        "name": "Framerate at which particles should be exported to disk. Useful value: 24.f.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "24"
+      }
+    }
+  }
+}    

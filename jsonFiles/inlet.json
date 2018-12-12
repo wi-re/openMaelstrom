@@ -1,0 +1,237 @@
+{
+  "functions":{
+    "volumeInlets": {
+      "description": "Module used for emitters based on openVDB signed distance fields.",
+      "folder": "generation",
+      "name": "streamInlet",
+      "cell_info": true,
+      "units": true,
+      "inlet": true,
+      "functions": [ "init", "emit" ],
+      "depends_any": [ { "volumeInlets": true } ],
+      "parameters": [ "omega", "overhead_size", "target_neighbors", "support_leeway", "error_factor", "resort_algorithm", "ptcl_spacing" ],
+      "output": [ "position", "velocity", "lifetime", "volume" ]
+    },
+    "particleCleanup": {
+      "description": "Module used to cleanup initial particle emission which might be OOB.",
+      "folder": "generation",
+      "name": "cleanup",
+      "units": true,
+      "boundaryInfo": true,
+      "virtual_info": true,
+      "functions": [ "cleanup_particles" ],
+      "depends_any": [ { "particleCleanUp": true } ],
+      "output": [ "position"]
+    },
+    "volumeOutlets": {
+      "description": "Module used to implement vdb based solid objects. Maps vdb volumes (signed distance fields) to 3d cuda textures.",
+      "folder": "generation", 
+      "name": "Outlet",
+      "units": false,
+      "cell_info": false,
+      "neighbor_info": false,
+      "depends_any": [ { "volumeOutlets": true } ],
+      "functions": [ "init", "remove" ],
+      "parameters": [ "volumeOutletCounter" ],
+      "input": [ "volume", "volumeOutletVolumes", "volumeOutletDimensions", "volumeOutletMin", "volumeOutletMax", "volumeOutletRate" ],
+      "output" : ["position", "volumeOutletRateAccumulator"]
+    }
+  },
+  "arrays":{
+    "volumeInletArrays":{
+      "inletPositions": {
+        "description": "Stores the values of all positions of all emitters that particles count be emitted from.", 
+        "unit":"SI::m",
+        "type": "float4",
+        "kind": "customData"
+      },      
+      "inletCounter": {
+        "description": "Atomic counter used to keep track of the particles that were created.", 
+        "unit":"none",
+        "type": "int32_t",
+        "kind": "customData"
+      },
+      "volumeOutletVolumes": {
+        "description": "Contains references to boundary volumes created from vdb volumes for more complex boundary objects than planes.",
+        "type": "cudaTextureObject_t",
+        "unit": "none",
+        "kind": "customData"
+      },
+      "volumeOutletDimensions": {
+        "description": "Contains the dimension in voxels for each boundary volume.",
+        "type": "int4",
+        "unit": "none",
+        "kind": "customData"
+      },
+      "volumeOutletMin": {
+        "description": "Low part of the AABB of every boundary volume.",
+        "type": "float4",
+        "unit": "SI::m",
+        "kind": "customData"
+      },
+      "volumeOutletMax": {
+        "description": "High part of the AABB of every boundary volume.",
+        "type": "float4",
+        "unit": "SI::m",
+        "kind": "customData"
+      }, 
+      "volumeOutletRate": {
+        "description": "Low part of the AABB of every boundary volume.",
+        "type": "float",
+        "unit": "SI::volume",
+        "kind": "customData"
+      },
+      "volumeOutletRateAccumulator": {
+        "description": "Low part of the AABB of every boundary volume.",
+        "type": "float",
+        "unit": "SI::volume",
+        "kind": "customData"
+      }
+    }
+  },
+  "uniforms":{
+    "modules":{
+      "particleCleanUp": { 
+        "identifier": "particleCleanUp",
+        "name": "Used to enable/disable correct error checking after each kernel call which introduces some overhead.",
+        "type": "bool",
+        "default": true
+      },
+      "volumeInlets": {
+        "identifier": "volumeInlets",
+        "name": "Used to enable/disable correct error checking after each kernel call which introduces some overhead.",
+        "type": "bool",
+        "default": false
+      },
+      "volumeOutlets": {
+        "identifier": "volumeOutlets",
+        "name": "Used to enable/disable correct error checking after each kernel call which introduces some overhead.",
+        "type": "bool",
+        "default": false
+      }
+    },
+    "particle_volumes": { 
+      "volume$": {
+        "identifier": "particle_volumes",
+        "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles once.",
+        "default": "",
+        "type": "std::vector<particle_volume>",
+        "complex_type": {
+          "name": "particle_volume",
+          "description": {
+            "file": {
+              "identifier": "fileName",
+              "type": "std::string",
+              "default": ""
+            },
+            "kind": {
+              "identifier": "kind",
+              "type": "std::string",
+              "default": ""
+            },
+            "concentration": {
+              "identifier": "concentration",
+              "type": "float",
+              "default": "0.f"
+            },
+            "timeToEmit": {
+              "identifier": "timeToEmit",
+              "type": "float",
+              "default": "0.f"
+            }
+          }
+        }
+      }
+    },
+    "inlet_volumes": {
+      "volume$": {
+        "identifier": "inlet_volumes",
+        "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles continuously.",
+        "default": "",
+        "type": "std::vector<inlet_volume>",
+        "complex_type": {
+          "name": "inlet_volume",
+          "description": {
+            "file": {
+              "identifier": "fileName",
+              "type": "std::string",
+              "default": ""
+            },
+            "ptcls": {
+              "identifier": "particles_emitted",
+              "type": "int32_t",
+              "default": "0"
+            },
+            "dur": {
+              "identifier": "duration",
+              "type": "float",
+              "default": "-1.f"
+            },
+            "del": {
+              "identifier": "delay",
+              "type": "float",
+              "default": "-1.f"
+            },
+            "r": {
+              "identifier": "inlet_radius",
+              "type": "float",
+              "default": "-1.f"
+            },
+            "vel": {
+              "identifier": "emitter_velocity",
+              "type": "float4",
+              "default": "{0.f,0.f,0.f,0.f}"
+            }
+          }
+        }
+      }
+    },
+    "outlet_volumes": {
+      "volumeOutletCounter": {
+        "identifier": "volumeOutletCounter",
+        "name": "Represents the number of valid boundary volumes.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "volumeOutletTime": {
+        "identifier": "volumeOutletTime",
+        "name": "Represents the number of valid boundary volumes.",
+        "type": "float",
+        "unit": "SI::s",
+        "default": "-1.f"
+      },
+      "volume$": {
+        "identifier": "outlet_volumes",
+        "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles continuously.",
+        "default": "",
+        "type": "std::vector<outlet_volume>",
+        "complex_type": {
+          "name": "outlet_volume",
+          "description": {
+            "file": {
+              "identifier": "fileName",
+              "type": "std::string",
+              "default": ""
+            },
+            "dur": {
+              "identifier": "duration",
+              "type": "float",
+              "default": "-1.f"
+            },
+            "del": {
+              "identifier": "delay",
+              "type": "float",
+              "default": "-1.f"
+            },
+            "rate": {
+              "identifier": "flowRate",
+              "type": "float",
+              "default": "-1.f"
+            }
+          }
+        }
+      }
+    }
+  }
+}     

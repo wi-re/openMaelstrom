@@ -1,0 +1,135 @@
+QMenuBar {
+	background-color: #505050;
+	color: #FFFFFF;
+	font: "Helvetica [Cronyx]";
+	font-size: 14px;
+}
+
+QMenuBar::item:selected {
+	background-color: #202020;
+}
+
+QMenu::item:selected {
+	border-color: #808080;
+	background: #A0A0A0;
+}
+
+QPushButton {
+	background-color: #505050;
+	border: none;
+	min-width: 45px;
+	min-height: 21px;
+}
+
+QPushButton:hover:!pressed {
+	background-color: #707070;
+	border: none;
+}
+
+QPushButton:pressed {
+	background-color: #202020;
+	border: none;
+}
+
+QPushButton#ExitButton {
+	background-color: #505050;
+	border: none;
+	min-width: 45px;
+	min-height: 21px;
+}
+
+QPushButton#ExitButton:hover:!pressed {
+	background-color: rgb(232, 17, 35);
+}
+
+QPushButton#ExitButton:pressed {
+	background-color: rgb(241, 112, 122);
+}
+
+QPushButton#SizeButton {
+	background-color: #505050;
+	border: none;
+	min-width: 45px;
+	min-height: 21px;
+}
+
+QPushButton#SizeButton:hover:!pressed {
+	background-color: #707070;
+}
+
+QPushButton#SizeButton:pressed {
+	background-color: #202020;
+}
+QWidget{
+	background-color: #505050;	
+}
+QGroupBox{
+	border: none;
+	background-color: #505050;
+	margin-top: 0ex;
+}
+QLabel{
+	font: "Helvetica [Cronyx]";
+	color:#F0F0F0;
+	background-color: #00000000;
+	font-size: 16px;	
+}
+QGroupBox::title{
+	font-size: 0px;
+	height: 30px;
+	padding-top: 0px;
+}
+QRadioButton::indicator{
+	width: 32px;
+	height: 32px;
+}
+QRadioButton{
+	font: "Helvetica [Cronyx]";
+	padding-top: -5px;
+	color:#A0A0A0;
+	font-size: 16px;
+}
+QLineEdit{	
+	background-color:#FFFFFF;
+	color:#202020;
+}
+QRadioButton::indicator::unchecked {
+    image: url($resource/images/radiobutton_unchecked.png);
+}
+
+QRadioButton::indicator:unchecked:hover {
+    image: url($resource/images/radiobutton_unchecked_hover.png);
+}
+
+QRadioButton::indicator:unchecked:pressed {
+    image: url($resource/images/radiobutton_unchecked_hover.png);
+}
+
+QRadioButton::indicator::checked {
+    image: url($resource/images/radiobutton_checked.png);
+}
+
+QRadioButton::indicator:checked:hover {
+    image: url($resource/images/radiobutton_checked_hover.png);
+}
+
+QRadioButton::indicator:checked:pressed {
+    image: url($resource/images/radiobutton_checked_hover.png);
+}
+QTextEdit{
+	background-color:#FFFFFF;
+	color:#202020;
+	font-size: 12px;
+}
+
+QTreeWidget::item{
+    color: rgb(255, 255, 0);
+    border : 5px;
+    border-bottom: 1px solid #202020;
+}
+QComboBox {
+	font: "Helvetica [Cronyx]";
+	color:#F0F0F0;
+	background-color: #00000000;
+	font-size: 16px;	
+}

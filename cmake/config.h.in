@@ -1,0 +1,4 @@
+#pragma once
+#include <string>
+std::string sourceDirectory = "@CMAKE_SOURCE_DIR@";
+std::string binaryDirectory = "@CMAKE_BINARY_DIR@";

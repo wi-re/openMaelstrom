@@ -1,0 +1,80 @@
+{
+  "functions":{
+    "surfaceDistance": {
+      "description": "Module used to iteratively created a stable surface distance for every particle in the simulation. Very slow.",
+      "folder": "surface",
+      "name": "distance",
+      "units": true,
+      "cell_info": false,
+      "virtual_info": true,
+      "boundaryInfo": true,
+      "neighbor_info": true,
+      "depends_any": [ { "surfaceDistance": true } ],
+      "functions": [ "distance" ],
+      "parameters": [ "xsph_viscosity", "surface_levelLimit", "surface_neighborLimit", "surface_phiMin", "surface_phiChange", "surface_distanceFieldDistances" ],
+      "input": [ "position", "density", "volume",  "velocity" ],
+      "swap": [ "distanceBuffer", "surface_idxBuffer" ],
+      "temporary": [ "decisionBuffer", "markerBuffer", "changeBuffer" ]
+    }
+  },
+  "arrays":{
+  },
+  "uniforms":{
+    "modules":{
+      "surfaceDistance": {
+        "identifier": "surfaceDistance",
+        "name": "Used to enable/disable surface distance calculations, required for adaptivity.",
+        "type": "bool",
+        "default": true
+      }
+    },
+    "surfaceDistance": {
+      "level_limit": {
+        "identifier": "surface_levelLimit",
+        "name": "Maximum distance to the surface that is calculate by the surface distance function. Should be atleast -20.f or smaller.",
+        "type": "float",
+        "const": "false",
+        "unit": "SI::m",
+        "default": "-20.f"
+      },
+      "neighborLimit": {
+        "identifier": "surface_neighborLimit",
+        "name": "Particles with more than this number of neighbors will be marked as interior particles. Useful value: 40.",
+        "type": "int32_t",
+        "const": "false",
+        "unit": "none",
+        "default": "40"
+      },
+      "phi_min": {
+        "identifier": "surface_phiMin",
+        "name": "Value that stores the closest distance of a fluid particle to the surface.",
+        "unit": "SI::m",
+        "type": "float",
+        "default": "0.f"
+      },
+      "phi_change": {
+        "identifier": "surface_phiChange",
+        "name": "Value that stores the number of particles changed in the last distance iteration.",
+        "type": "float",
+        "unit": "none",
+        "default": "0.f"
+      },
+      "distanceFieldDistances": {
+        "identifier": "surface_distanceFieldDistances",
+        "name": "Particles closer than this distance to a boundary will be marked as interior particles to avoid instabilities due to bad boundary handling. Useful value: 4.f,4.f,4.f.",
+        "unit": "SI::m",
+        "const": "false",
+        "type": "float3",
+        "default": "4.f,4.f,4.f"
+      },
+      "surfaceIterations": {
+        "identifier": "surface_iterations",
+        "name": "Particles closer than this distance to a boundary will be marked as interior particles to avoid instabilities due to bad boundary handling. Useful value: 4.f,4.f,4.f.",
+        "unit": "none",
+        "const": "false",
+        "type": "int32_t",
+        "default": "0"
+      }
+    }
+  }
+}    

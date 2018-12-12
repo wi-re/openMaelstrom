@@ -1,0 +1,157 @@
+{
+  "functions":{
+    "enforce_symmetry": {
+      "description": "Module used to constrain the neighborhoods of particles in a novel way that works with a single cell iteration by using histograms (Paper pending)",
+      "folder": "support",
+      "name": "enforceSymmetry",
+      "units": true,
+      "cell_info": true,
+      "neighbor_info": false,
+      "functions": [ "constrain_support" ],
+      "depends_any": [
+        { "support": "constrained" },
+        { "sorting": "MLM" }
+      ],
+      "parameters": [ "target_neighbors", "support_leeway", "neighborlimit" ],
+      "input": [ "volume" ],
+      "output": [ "position", "MLMResolution" ],
+      "temporary": [ "particleIndex", "particleIndexCompact" ] 
+    }
+  },
+  "arrays":{
+    "supportArrays": {
+      "support": {
+        "description": "Contains the final support radius of each particle. Used as a temporary value.",
+        "type": "float",
+        "unit": "SI::m",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "supportEstimate": {
+        "description": "Contains the estimated support radius of each particle. Used as a temporary value.",
+        "type": "float",
+        "unit": "SI::m",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "neighborCount": {
+        "description": "Contains the number of neighbors a particle has even if those cannot be contained in the contrained neighborlist.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "supportMarker": {
+        "description": "Used to mark particles as having too many neighbors to fit into the neighborlist.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "supportMarkerCompacted": {
+        "description": "Compacted version of the marker list for particles with too many neighbors.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "closestNeighbor": {
+        "description": "Misused to increment counters for the overhead list.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "closestNeighbor_f": {
+        "description": "Contains the distance of a particle to the nearest neighbor.",
+        "type": "int32_t",
+        "unit": "SI::m",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "neighborOverhead": {
+        "description": "Temporary buffer for neighbors that might be able to get merged into the normal neighbor list later.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "neighborOverheadCount": {
+        "description": "Number of temporary entries per particle",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      },
+      "neighborListSwap": {
+        "description": "Used as an internal switch in the constrained neighborlist method.",
+        "type": "int32_t",
+        "unit": "none",
+        "kind": "singleData",
+        "depends_any": [ { "neighborhood": "constrained" } ]
+      }
+    }
+  },
+  "uniforms":{
+    "modules":{
+      "support": {
+        "identifier": "support",
+        "name": "Used to select the algorithm used to constrain particle support. constrained and none are valid options.",
+        "type": "std::string",
+        "default": "constrained"
+      }
+    },
+    "support": {
+      "support_current_iteration": {
+        "identifier": "support_current_iteration",
+        "name": "Number of iterations required to constrain the support.",
+        "type": "uint32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "adjusted_particles": {
+        "identifier": "adjusted_particles",
+        "name": "Number of particles with an adjusted support radius in the last iteration.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "omega": {
+        "identifier": "omega",
+        "name": "Scaling factor for changing the support radius back to the default value. Useful value: 0.97f.",
+        "type": "float",
+        "unit": "none",
+        "default": "0.97f"
+      },
+      "target_neighbors": {
+        "identifier": "target_neighbors",
+        "name": "Represents the ideal number of neighbors for a particle. Based on the kernel being used.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "support_leeway": {
+        "identifier": "support_leeway",
+        "name": "Difference between the number of neighbor entries per particle and the target number of neighbor entries.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "overhead_size": {
+        "identifier": "overhead_size",
+        "name": "Represents the overhead size used to temporarily store neighbor entries.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "error_factor": {
+        "identifier": "error_factor",
+        "name": "Used as an offset to create the actual neighbor entries as forcing values to be as small as the ideal number can be problematic.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "3"
+      }
+  
+    }
+  }
+}    

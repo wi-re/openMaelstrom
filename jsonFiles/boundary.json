@@ -1,0 +1,248 @@
+{
+  "functions":{
+    "volumeBoundary": {
+      "description": "Module used to implement vdb based solid objects. Maps vdb volumes (signed distance fields) to 3d cuda textures.",
+      "folder": "boundary", 
+      "name": "volume",
+      "units": true,
+      "cell_info": false,
+      "neighbor_info": false,
+      "depends_any": [ { "volumeBoundary": true } ],
+      "functions": [ "init_volumes" ],
+      "parameters": [ "boundaryDampening", "volumeBoundaryCounter" ],
+      "input": [ "volumeBoundaryVolumes", "volumeBoundaryDimensions", "volumeBoundaryMin", "volumeBoundaryMax" ],
+      "swap": [ "position", "velocity" ]  
+    },
+    "moving_planes": {
+      "description": "Module used to provide moving boundaries, e.g. wave walls, in simulations. Implicit plane based.",
+      "folder": "boundary",
+      "name": "moving_planes",
+      "units": true,
+      "functions": [ "correct_position", "correct_velocity", "update_boundaries"],
+      "parameters": [ "boundaryCounter", "boundaryDampening"],
+      "output": [ "boundaryPlanes"],
+      "depends_any": [ { "movingBoundaries": true } ],
+      "swap": [ "position", "velocity" ]
+    }
+  },
+  "arrays":{
+    "boundaryArrays": {
+      "boundaryLUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "void",
+        "type": "float",
+        "kind": "customData"
+      },
+      "boundaryPressureLUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "SI::derived_unit<SI::recip<SI::m>>",
+        "type": "float",
+        "kind": "customData"
+      },
+      "xbarLUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "SI::derived_unit<SI::recip_2<SI::m>>",
+        "type": "float",
+        "kind": "customData"
+      },
+      "ctrLUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "none",
+        "type": "int32_t",
+        "kind": "customData"
+      },
+      "boundaryPlanes": {
+        "description": "Contains boundary planes of the simulation as implicit plane equations entry = (n.x,n.y,n.z,d).",
+        "unit": "void",
+        "type": "float4",
+        "kind": "customData"
+      },
+      "volumeBoundaryVolumes": {
+        "description": "Contains references to boundary volumes created from vdb volumes for more complex boundary objects than planes.",
+        "type": "cudaTextureObject_t",
+        "unit": "none",
+        "kind": "customData"
+      },
+      "volumeBoundaryDimensions": {
+        "description": "Contains the dimension in voxels for each boundary volume.",
+        "type": "int4",
+        "unit": "none",
+        "kind": "customData"
+      },
+      "volumeBoundaryMin": {
+        "description": "Low part of the AABB of every boundary volume.",
+        "type": "float4",
+        "unit": "SI::m",
+        "kind": "customData"
+      },
+      "volumeBoundaryMax": {
+        "description": "High part of the AABB of every boundary volume.",
+        "type": "float4",
+        "unit": "SI::m",
+        "kind": "customData"
+      }
+    }, 
+    "surfaceArrays": {
+      "decisionBuffer": {
+        "description": "Used to indicate if a particle is at the surface or not and if the state of the particle has changed in the last surface distance iteration.",
+        "unit": "none",
+        "type": "float",
+        "kind": "particleData",
+        "depends_any": [ { "surfaceDistance": true } ]
+      },
+      "surface_idxBuffer": {
+        "description": "Used for compaction of indices.",
+        "unit": "none",
+        "type": "int32_t",
+        "kind": "particleData",
+        "swap": true,
+        "depends_any": [ { "surfaceDistance": true } ]
+      },
+      "markerBuffer": {
+        "description": "Similar to decisionBuffer, these two values are used in an A->B, B->A fashion.",
+        "unit": "none",
+        "type": "float",
+        "kind": "particleData",
+        "depends_any": [ { "surfaceDistance": true } ]
+      },
+      "distanceBuffer": {
+        "description": "Contains the signed distance of a particle to the closest fluid surface (distances are negative as fluid particles are inside the fluid volume).",
+        "unit": "SI::m",
+        "type": "float",
+        "kind": "particleData",
+        "size": 1,
+        "swap": true,
+        "resort": true,
+        "depends_any": [ { "surfaceDistance": true } ]
+      },
+      "changeBuffer": {
+        "description": "Used to count particles that have changed in the last iteration.",
+        "unit": "none",
+        "type": "float",
+        "kind": "particleData",
+        "depends_any": [ { "surfaceDistance": true } ]
+      }
+    }
+  },
+  "uniforms":{
+    "modules":{
+      "movingBoundaries": {
+        "identifier": "movingBoundaries",
+        "name": "Used to enable/disable correct error checking after each kernel call which introduces some overhead.",
+        "type": "bool",
+        "default": false
+      }
+    },
+    "simulation_settings":{
+      "boundaryDampening": {
+        "identifier": "boundaryDampening",
+        "name": "Dampening applied to particles upon impact of the boundary, currently effectively forced to 1.",
+        "type": "float",
+        "default": "0.97f",
+        "unit": "none",
+        "visible": true,
+        "const": false,
+        "range": {
+          "min": "0.0f",
+          "max": "1.0f",
+          "step": "0.001f"
+        }
+      },
+      "boundaryObject": {
+        "identifier": "boundaryObject",
+        "name": "Path to an .obj file used to initialize the Simulation domain.",
+        "type": "std::string",
+        "unit": "none",
+        "default": ""
+      },
+      "domainWalls": {
+        "identifier": "domainWalls",
+        "name": "String used to create boundary walls around the domain described by the boundaryObject. Useful value: x+-y+-z+-.",
+        "type": "std::string",
+        "unit": "none",
+        "default": "x+-y+-z+-"
+      },
+      "neighborlimit": {
+        "identifier": "neighborlimit",
+        "name": "Maximum number of neighborhood entries for a particle.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "150u"
+      }
+    },
+    "moving_plane": {
+      "plane$": {
+        "identifier": "moving_planes",
+        "name": "Complex parameter that describes a moving boundary Wall.",
+        "default": "",
+        "type": "std::vector<moving_plane>",
+        "complex_type": {
+          "name": "moving_plane",
+          "description": {
+            "pos": {
+              "identifier": "plane_position",
+              "type": "float3",
+              "default": "{0.f,0.f,0.f}"
+            },
+            "norm": {
+              "identifier": "plane_normal",
+              "type": "float3",
+              "default": "{0.f,0.f,0.f}"
+            },
+            "dir": {
+              "identifier": "plane_direction",
+              "type": "float3",
+              "default": "{0.f,0.f,0.f}"
+            },
+            "dur": {
+              "identifier": "duration",
+              "type": "float",
+              "default": "-1.f"
+            },
+            "mag": {
+              "identifier": "magnitude",
+              "type": "float",
+              "default": "0.f"
+            },
+            "freq": {
+              "identifier": "frequency",
+              "type": "float",
+              "default": "0.f"
+            },
+            "idx": {
+              "identifier": "index",
+              "type": "int32_t",
+              "default": "0"
+            }
+          }
+        }
+      }
+    },
+    "boundary_volumes": {
+      "volumeBoundaryCounter": {
+        "identifier": "volumeBoundaryCounter",
+        "name": "Represents the number of valid boundary volumes.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+  
+      "volume$": {
+        "identifier": "boundary_volumes",
+        "name": "Complex parameter that describes a volume that should be loaded from a file and used as a one way coupled boundary Object.",
+        "default": "",
+        "type": "std::vector<boundary_volume>",
+        "complex_type": {
+          "name": "boundary_volume",
+          "description": {
+            "file": {
+              "identifier": "fileName",
+              "type": "std::string",
+              "default": ""
+            }
+          }
+        }
+      }
+      }
+  }
+}    

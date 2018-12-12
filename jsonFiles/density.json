@@ -1,0 +1,75 @@
+{
+  "functions":{
+    "density": {
+      "description": "Module used to calculate an SPH Estimate of density. Uses an approach similar to contrast density interfaces but on a more generic level.",
+      "folder": "density",
+      "name": "Density",
+      "units": true,
+      "cell_info": true,
+      "virtual_info": true,
+      "boundaryInfo": true,
+      "neighbor_info": true,
+      "functions": [ "estimate_density" ],
+      "parameters": [ "boundaryDampening", "boundaryCounter", "ptcl_spacing" ],
+      "depends_any": [ { "density": "standard" } ],
+      "input": [ "position", "volume", "boundaryPlanes" ],
+      "output": [ "density" ]
+    },
+    "shepardDensity": {
+      "description": "Module used to implement a compact hashing style resorting algorithm on GPUs with 64 bit indices, limiting the domain to 2,097,152^3 cells. Additionally implements a multi level scheme that creates multiplle hash tables for a much faster adaptive simulaiton.",
+      "folder": "density",
+      "name": "shepardDensity",
+      "neighbor_info": true,
+      "virtual_info": true,
+      "boundaryInfo": true,
+      "units": true,
+      "functions": [ "estimate_density" , "update_density"],
+      "parameters": [ "boundaryDampening", "boundaryCounter", "ptcl_spacing" ],
+      "depends_any": [ { "density": "shepard" } ],
+      "swap":["density"],
+      "input": [ "position", "volume", "boundaryPlanes", "velocity" ]
+    },
+    "MLSDensity": {
+      "description": "Module used to implement a compact hashing style resorting algorithm on GPUs with 64 bit indices, limiting the domain to 2,097,152^3 cells. Additionally implements a multi level scheme that creates multiplle hash tables for a much faster adaptive simulaiton.",
+      "folder": "density",
+      "name": "MLSDensity",
+      "neighbor_info": true,
+      "virtual_info": true,
+      "boundaryInfo": true,
+      "units": true,
+      "functions": [ "estimate_density" ],
+      "parameters": [ "boundaryDampening", "boundaryCounter", "ptcl_spacing" ],
+      "depends_any": [ { "density": "MLS" } ],
+      "input": [ "position", "volume", "boundaryPlanes", "velocity" ],
+      "output": [ "density" ]
+    }
+  },
+  "uniforms":{
+    "modules":{
+      "density": {
+        "identifier": "density",
+        "name": "Used to select the underlying sorting algorithm. linear_cell and hashed_cell are valid options.",
+        "type": "std::string",
+        "default": "standard"
+      }
+    },
+    "particle_settings":{
+      "rest_density": {
+        "identifier": "rest_density",
+        "name": "Rest density of all fluid particles. Useful value: 998.f.",
+        "type": "float",
+        "unit": "SI::density",
+        "default": "998.f"    
+      }
+    },
+    "simulation_settings": {
+      "densitySteps": {
+        "identifier": "densitySteps",
+        "name": "Represents the maximum number of particles allowed in the simulation due to memory allocations.",
+        "type": "int32_t",
+        "default": "10u",
+        "unit": "none"
+      }
+    }
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "functions":{
+    "ContinuousAdaptivity": {
+      "description": "Module used to implement the infinite continuous SPH paper.",
+      "folder": "adaptivity",
+      "name": "adaptive",
+      "units": true,
+      "cell_info": true,
+      "neighbor_info": true,
+      "inlet": true,
+      "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ],
+      "functions": [ "adapt", "blendDensity", "blendVelocity" ],
+      "parameters": [ "xsph_viscosity", "adaptiveRatio", "surface_levelLimit", "simulationTime", "surface_neighborLimit", "surface_phiMin", "surface_phiChange", "surface_distanceFieldDistances", "volumeBoundaryCounter", "boundaryCounter", "adaptive_resolution", "adaptive_delay", "blendsteps" ],
+      "swap": [ "distanceBuffer", "adaptiveParentIndex", "adaptiveParentPosition" ],
+      "output": [ "position", "velocity", "lifetime", "density", "volume", "adaptiveSplitIndicator", "adaptiveParentVolume" ],
+      "temporary": [ "adaptiveClassification", "adaptiveMergeCounter", "markerBuffer", "changeBuffer", "adaptiveMergeable", "adaptiveNumPtcls", "particleIndex", "particleIndexCompact" ]
+    }
+  },
+  "arrays":{
+    "adaptiveArrays": {
+      "adaptiveMergeable": {
+        "description": "Indiciates the merge-ability or share-ability of a particle.",
+        "unit": "none",
+        "type": "int32_t",
+        "kind": "particleData",
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      },
+      "adaptiveMergeCounter": {
+        "description": "Indiciates the number of merging/sharing partners.",
+        "unit": "none",
+        "type": "int32_t",
+        "kind": "particleData",
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      },
+      "adaptiveNumPtcls": {
+        "description": "Used as an atomic counter to increment the number of particles.",
+        "unit": "none",
+        "type": "int32_t",
+        "kind": "particleData",
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      },
+      "adaptiveClassification": {
+        "description": "Contains the classification of every particle according to a decision function.",
+        "unit": "none",
+        "type": "float",
+        "kind": "particleData",
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      },
+      "adaptiveSplitIndicator": {
+        "description": "Contains an indicator that is incremented over time or reset depending on the classification of a particle as L over time.",
+        "type": "int32_t",
+        "kind": "particleData",
+        "unit": "none",
+        "size": 1,
+        "swap": true,
+        "resort": true,
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      },
+      "adaptiveSplitIndicatorCompacted": {
+        "description": "Contains an indicator that is incremented over time or reset depending on the classification of a particle as L over time.",
+        "type": "int32_t",
+        "kind": "particleData",
+        "unit": "none",
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      },
+      "adaptiveParentIndex": {
+        "description": "Contains a unique identifier of the parent particle of a particle that was split particle.",
+        "type": "int32_t",
+        "kind": "particleData",
+        "unit": "none",
+        "size": 1,
+        "swap": true,
+        "resort": true,
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      },
+      "adaptiveParentVolume": {
+        "description": "Contains the volume of the parent particle of a particle that was split.",
+        "unit": "SI::volume",
+        "type": "float",
+        "kind": "particleData",
+        "size": 1,
+        "swap": true,
+        "resort": true,
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      },
+      "adaptiveParentPosition": {
+        "description": "Contains an estimated propagated position Contains the volume of the parent particle of a particle that was split.",
+        "unit": "SI::m",
+        "type": "float4",
+        "kind": "particleData",
+        "size": 1,
+        "swap": true,
+        "resort": true,
+        "depends_all": [ { "surfaceDistance": true }, { "adaptive": true } ]
+      }
+    }
+  },
+  "uniforms":{
+    "modules":{
+      "adaptive": {
+        "identifier": "adaptive",
+        "name": "Used to enable/disable continuous adaptivity, requires surfaceDistance = true.",
+        "type": "bool",
+        "default": true
+      }
+    },
+    "adaptive": {
+      "resolution": {
+        "identifier": "adaptive_resolution",
+        "name": "Target adaptivity ratio of volumes for the simulation. Useful value: 16.f.",
+        "type": "float",
+        "default": "16.f",
+        "unit": "none",
+        "const": false,
+        "range": {
+          "min": "1.f",
+          "max": "512.f",
+          "step": "1.f"
+        }
+      },
+      "adaptiveRatio": {
+        "identifier": "adaptiveRatio",
+        "name": "Target adaptivity ratio of volumes for the simulation. Useful value: 16.f.",
+        "type": "float",
+        "default": "1.f",
+        "unit": "none"
+      },
+      "blendsteps": {
+        "identifier": "blendsteps",
+        "name": "Timesteps that the simulation should blend split particles over. Useful value: 10.f.",
+        "type": "float",
+        "const": false,
+        "unit": "none",
+        "default": "10.f"
+      },
+      "delay": {
+        "identifier": "adaptive_delay",
+        "name": "Initial delay the simulation should wait before adjusting the resolution due to initial errors. Useful value: 1.f.",
+        "type": "float",
+        "const": false,
+        "unit": "SI::s",
+        "default": "1.f"
+      },
+      "split": {
+        "identifier": "split_ptcls",
+        "name": "Value that represents the number of particles split in the last splitting step.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "blend": {
+        "identifier": "blend_ptcls",
+        "name": "Value that represents the number of particles split in the last splitting step.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "merged": {
+        "identifier": "merged_ptcls",
+        "name": "Value that represents the number of particles merged in the last merge step.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "shared": {
+        "identifier": "shared_ptcls",
+        "name": "Value that represents the number of particles sharing in the last share step.",
+        "type": "int32_t",
+        "default": "0"
+      }
+    }    
+  }
+}    
