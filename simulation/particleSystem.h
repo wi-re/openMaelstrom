@@ -4,6 +4,7 @@
 
 struct cuda_particleSystem {
 private:
+  std::vector<std::function<void()>> callbacks;
   cuda_particleSystem() = default;
 public:
   bool init = false;
@@ -15,5 +16,6 @@ public:
 
   void step();
   void* retainArray(std::string arrayName);
+  void addCallback(std::function<void()> cb);
   void init_simulation();
 };

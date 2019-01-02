@@ -111,6 +111,8 @@ void cuda_particleSystem::step() {
 	  if (get<parameters::alembic_export>()) {
 		  TIME_CODE(Export, Color::neonblue, IO::alembic::save_particles(););
 	  }
+	  for(auto& cb : callbacks)
+	  	cb();
 	  MemoryManager::instance().reclaimMemory(); 
 	  get<parameters::frame>() += 1;
 	  );
@@ -124,4 +126,8 @@ void cuda_particleSystem::step() {
 cuda_particleSystem &cuda_particleSystem::instance() {
   static cuda_particleSystem cps;
   return cps;
+}
+
+void cuda_particleSystem::addCallback(std::function<void()> fn){
+	callbacks.push_back(fn);
 }

@@ -220,7 +220,7 @@ hostDeviceInline auto dot(T &&lhs, U &&rhs) {
 /* Calculates a dot product on up to the first 3 components of the arguments,
  * useful for situations where the fourth dimension contains some value for
  * memory efficiency that is not part of the actual value.*/
-template <typename T, typename U, enable_ty((dim_u<T> == dim_u<U>))>
+template <typename T, typename U, enable_ty((dim_u<T> == dim_u<U>) || (dim_u<T> >= 3 && dim_u<U> >= 3))>
 hostDeviceInline auto dot3(T &&lhs, U &&rhs) {
   auto res = weak_get<1>(lhs) * weak_get<1>(rhs);
   res += weak_get<2>(lhs) * weak_get<2>(rhs);

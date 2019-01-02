@@ -118,6 +118,7 @@ struct SceneInformation {
   DeviceCamera m_camera{};
   float width = 1920;
   float height = 1080;
+  bool dirty = true;
 };
 
 extern SceneInformation& hostScene();

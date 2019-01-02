@@ -111,27 +111,31 @@ void OGLWidget::initializeGL() {
   hScene.m_camera = cam;
 
   // Setup the basic render functions that currently exist
-  // if (get<parameters::volumeBoundary>() == true)
-  //   m_renderFunctions.push_back(new volumeBoundaryRender(this));
-  m_renderFunctions.push_back(new ParticleRenderer(this));
-  m_renderFunctions.push_back(new BoundsRenderer(this));
-  for(auto fluidVolume : get<parameters::boundary_volumes>()){
-    auto render = new volumeRender(this, fluidVolume.fileName.value);
-    render->toggle();
-    m_renderFunctions.push_back(render);
+  constexpr auto rayTracing = false;
+  if (!rayTracing) {
+	   if (get<parameters::volumeBoundary>() == true)
+	     m_renderFunctions.push_back(new volumeBoundaryRender(this));
+	   m_renderFunctions.push_back(new ParticleRenderer(this));
+	   m_renderFunctions.push_back(new BoundsRenderer(this));
+	   for(auto fluidVolume : get<parameters::boundary_volumes>()){
+	     auto render = new volumeRender(this, fluidVolume.fileName.value);
+	     render->toggle();
+	     m_renderFunctions.push_back(render);
+	   }
+	   for (auto fluidVolume : get<parameters::particle_volumes>()) {
+	     m_volumeRenderFunctions.push_back(new volumeRender(this, fluidVolume.fileName.value));
+	   }
+	   for (auto &fluidVolume : get<parameters::inlet_volumes>()) {
+	     m_volumeRenderFunctions.push_back(new volumeRender(this, fluidVolume.fileName.value));
+	   }
+	   if(get<parameters::volumeOutlets>() == true)
+	   for (auto &fluidVolume : get<parameters::outlet_volumes>()) {
+	     m_volumeRenderFunctions.push_back(new volumeRender(this, fluidVolume.fileName.value));
+	   }
   }
-  for (auto fluidVolume : get<parameters::particle_volumes>()) {
-    m_volumeRenderFunctions.push_back(new volumeRender(this, fluidVolume.fileName.value));
+  else {
+	  m_renderFunctions.push_back(new QuadRender(this));
   }
-  for (auto &fluidVolume : get<parameters::inlet_volumes>()) {
-    m_volumeRenderFunctions.push_back(new volumeRender(this, fluidVolume.fileName.value));
-  }
-  if(get<parameters::volumeOutlets>() == true)
-  for (auto &fluidVolume : get<parameters::outlet_volumes>()) {
-    m_volumeRenderFunctions.push_back(new volumeRender(this, fluidVolume.fileName.value));
-  }
-  //m_renderFunctions.push_back(new QuadRender(this));
-
 }
 
 SceneInformation& hostScene(){ 
@@ -142,6 +146,11 @@ SceneInformation& hostScene(){
 void OGLWidget::renderFunctions() {
   std::lock_guard<std::mutex> guard(
       cuda_particleSystem::instance().simulation_lock);
+      auto [dirty, cam] = Camera::instance().prepareDeviceCamera();
+      hostScene().m_camera = cam;
+      hostScene().dirty = dirty;
+      Camera::instance().dirty = false;
+
   // Setup the correct basic mode for openGL. This has to be done every frame as
   // Qt will change the openGL state and not restore it to the previous state
   // when rendering some UI elements.

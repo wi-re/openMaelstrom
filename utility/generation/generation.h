@@ -11,10 +11,16 @@ grid_tuple loadVDBFile(fs::path fileName);
 // Loads an .obj file and uses the mesh to create a level set grid which works the same as
 // the level set grids expected by the other methods
 grid_tuple VDBfromOBJ(fs::path fileName);
+// Loads a .ply file and uses the mesh to create a level set grid which works the same as
+// the level set grids expected by the other methods
+grid_tuple VDBfromPly(fs::path fileName);
+
 // Helper function which reads either an obj or vdb file into a level set
 grid_tuple fileToVDB(fs::path path);
 
 // Mesh helper functions
+// Loads a mesh from a *.ply file
+obj_tuple ObjFromPly(fs::path path);
 // Loads a mesh from an *.obj file
 obj_tuple ObjFromObj(fs::path path);
 // Loads a level set from a *.vdb file and converts it into a mesh

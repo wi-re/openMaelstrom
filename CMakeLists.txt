@@ -22,7 +22,7 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/bin)
 # Project settings
 SET(NAME openGPUSPH)													# name of the Project, variable for convenience
 project(${NAME} LANGUAGES CXX CUDA)														# set the project name using the variable
- 
+  
 # clang-tidy for code linting if desired
 find_program(
 	CLANG_TIDY_EXE
@@ -198,7 +198,7 @@ endfunction(buildApplication)
 function(buildQTLibrary LIBRARY_NAME PREFIX)
 	_GLOB_SOURCES("${PREFIX}/${LIBRARY_NAME}")
 	QT5_WRAP_UI( UI_HEADERS ${UIS} )
-	IF(NOT ${CUDA_SOURCES} STREQUAL "" AND NOT WIN32)
+	IF(CUDA_SOURCES AND NOT WIN32)
 		add_library("${LIBRARY_NAME}_cuda" ${CUDA_SOURCES} ${CUDA_HEADERS}) 
 		_SETUP_DEPENDENCIES("${LIBRARY_NAME}_cuda" ${ARGN})
 		add_library( ${LIBRARY_NAME} ${CPP_SOURCES} ${CPP_HEADERS} ${RES_SOURCES} ${UI_HEADERS}) 
@@ -206,11 +206,11 @@ function(buildQTLibrary LIBRARY_NAME PREFIX)
 		add_dependencies("${LIBRARY_NAME}_cuda" utility)
 		add_dependencies(${LIBRARY_NAME} "${LIBRARY_NAME}_cuda")
 		qt5_use_modules(${LIBRARY_NAME} Widgets OpenGL Core )    
-	ELSE(NOT ${CUDA_SOURCES} STREQUAL "" AND NOT WIN32)
+	ELSE(CUDA_SOURCES AND NOT WIN32)
 		add_library( ${LIBRARY_NAME} ${CPP_SOURCES} ${CPP_HEADERS} ${CUDA_SOURCES} ${CUDA_HEADERS} ${RES_SOURCES} ${UI_HEADERS}  ) 
 		_SETUP_DEPENDENCIES(${LIBRARY_NAME} ${QT_LIBRARIES} ${ARGN})
 		qt5_use_modules(${LIBRARY_NAME} Widgets OpenGL Core )    
-	ENDIF(NOT ${CUDA_SOURCES} STREQUAL "" AND NOT WIN32)
+	ENDIF(CUDA_SOURCES AND NOT WIN32) 
 endfunction(buildQTLibrary)
 function(buildQTApplication EXECUTABLE_NAME)
 	set(CMAKE_AUTOMOC ON)													# automoc makes life easier with QT

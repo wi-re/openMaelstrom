@@ -38,9 +38,10 @@ MainWindow::MainWindow(QWidget *parent)
   auto f = resolveFile("cfg/style.css");
   auto p = f.parent_path().string();
   if (*(p.end() - 1) == '/' || *(p.end() - 1) == '\\')
-	  p = p.substr(0, p.length() - 1);
+    p = p.substr(0, p.length() - 1);
+  std::replace(p.begin(), p.end(), '\\', '/'); 
   std::string style_file = f.string();
-  std::ifstream t(style_file);
+  std::ifstream t(f);
   std::string str((std::istreambuf_iterator<char>(t)),
                   std::istreambuf_iterator<char>());
   QString style = QString::fromStdString(str);

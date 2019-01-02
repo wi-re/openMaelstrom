@@ -62,12 +62,29 @@ std::experimental::filesystem::path resolveFile(std::string fileName, std::vecto
 }
 
 	if (fs::exists(fileName)) return fs::path(fileName);
-	if (fs::exists(expanded)) return expanded;
+        if (fs::exists(expanded))
+          return expanded;
 
-	if (fs::exists(working_dir / fileName)) return working_dir.string() + std::string("/") + fileName;
-	if (fs::exists(binary_dir / fileName)) return binary_dir.string() + std::string("/") + fileName;
-	if (fs::exists(source_dir / fileName)) return source_dir.string() + std::string("/") + fileName;
-	if (fs::exists(build_dir / fileName)) return build_dir.string() + std::string("/") + fileName;
+        for (const auto &pathi : search_paths) {
+                        auto path = expand(fs::path(pathi));
+          if (fs::exists(working_dir / path / fileName))
+            return (working_dir / path / fileName).string();
+          if (fs::exists(binary_dir / path / fileName))
+            return (binary_dir / path / fileName).string();
+          if (fs::exists(source_dir / path / fileName))
+            return (source_dir / path / fileName).string();
+          if (fs::exists(build_dir / path / fileName))
+            return (build_dir / path / fileName).string();
+        }
+
+	if (fs::exists(working_dir / fileName))
+          return (working_dir / fileName);
+        if (fs::exists(binary_dir / fileName))
+          return (binary_dir / fileName);
+        if (fs::exists(source_dir / fileName))
+          return (source_dir / fileName);
+        if (fs::exists(build_dir / fileName))
+          return (build_dir / fileName);
 
 	std::stringstream sstream;
 	sstream << "File '" << fileName << "' could not be found in any provided search path" << std::endl;

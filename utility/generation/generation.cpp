@@ -1,7 +1,21 @@
 #pragma once
 #include <utility/include_all.h>
-#include <utility/mathv2.h>
 #include <utility/generation.h>
+#include <utility/mathv2.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <algorithm>
+#include <vector>
+#include <map>
+#include <cfloat>
 
 namespace generation {
 grid_tuple loadVDBFile(fs::path fileName) {
@@ -27,7 +41,7 @@ grid_tuple VDBfromOBJ(fs::path fileName) {
   std::ifstream objFile(fileName);
 
   std::vector<vdb::Vec3s> vertices;
-  std::vector<vdb::Vec3I> indices; 
+  std::vector<vdb::Vec3I> indices;
 
   for (std::string line; std::getline(objFile, line);) {
     auto vs = readValues<float>(line, "v");
@@ -57,10 +71,80 @@ grid_tuple VDBfromOBJ(fs::path fileName) {
   vdb::CoordBBox box = grid->evalActiveVoxelBoundingBox();
   return std::make_tuple(grid, grid->indexToWorld(box.getStart()), grid->indexToWorld(box.getEnd()));
 }
+grid_tuple VDBfromPly(fs::path fileName) {
+  std::ifstream objFile(fileName);
+
+  std::vector<vdb::Vec3s> vertices;
+  std::vector<vdb::Vec3I> indices;
+
+  int32_t vertexIdx = 0;
+  int32_t triangleIdx = 0;
+
+  std::string line;
+  unsigned totalVertices, totalTriangles, lineNo = 0;
+  bool inside = false;
+  while (std::getline(objFile, line)) {
+    lineNo++;
+    if (!inside) {
+      if (line.substr(0, 14) == "element vertex") {
+        std::istringstream str(line);
+        std::string word1;
+        str >> word1;
+        str >> word1;
+        str >> totalVertices;
+        vertices.resize(totalVertices);
+      } else if (line.substr(0, 12) == "element face") {
+        std::istringstream str(line);
+        std::string word1;
+        str >> word1;
+        str >> word1;
+        str >> totalTriangles;
+        indices.resize(totalTriangles);
+      } else if (line.substr(0, 10) == "end_header")
+        inside = true;
+    } else {
+      if (totalVertices) {
+
+        totalVertices--;
+        float x, y, z;
+
+        std::istringstream str_in(line);
+        str_in >> x >> y >> z;
+        auto &pCurrentVertex = vertices[vertexIdx];
+        pCurrentVertex.x() = x;
+        pCurrentVertex.y() = y;
+        pCurrentVertex.z() = z;
+        vertexIdx++;
+      }
+
+      else if (totalTriangles) {
+
+        totalTriangles--;
+        unsigned dummy;
+        unsigned idx1, idx2, idx3; // vertex index
+        std::istringstream str2(line);
+        if (str2 >> dummy >> idx1 >> idx2 >> idx3) {
+          auto &pCurrentTriangle = indices[vertexIdx];
+          pCurrentTriangle.x() = idx1;
+          pCurrentTriangle.y() = idx2;
+          pCurrentTriangle.z() = idx3;
+          triangleIdx++;
+        }
+      }
+    }
+  }
+  const float voxelSize = 0.5f;
+  vdbm::Transform::Ptr xform = vdbm::Transform::createLinearTransform(voxelSize);
+  auto grid = vdbt::meshToLevelSet<vdb::FloatGrid>(*xform, vertices, indices);
+  vdb::CoordBBox box = grid->evalActiveVoxelBoundingBox();
+  return std::make_tuple(grid, grid->indexToWorld(box.getStart()), grid->indexToWorld(box.getEnd()));
+}
 grid_tuple fileToVDB(fs::path path) {
   if (path.extension() == ".vdb")
     return loadVDBFile(path);
   if (path.extension() == ".obj")
+    return VDBfromOBJ(path);
+  if (path.extension() == ".ply")
     return VDBfromOBJ(path);
   else {
     std::cerr << "Unknown file extension in " << path.string() << std::endl;
@@ -101,14 +185,93 @@ obj_tuple ObjFromObj(fs::path path) {
     edges.push_back(Edge{plane.i2, plane.i0});
   }
 
-  float3 min = vector_t<float, 3>::min();
-  float3 max = vector_t<float, 3>::max();
+  float3 min = vector_t<float, 3>::max();
+  float3 max = vector_t<float, 3>::min();
   for (const auto &vtx : vertices) {
     min = math::min(min, vtx);
     max = math::max(max, vtx);
   }
 
   return std::make_tuple(vertices, planes, edges, min, max);
+}
+obj_tuple ObjFromPly(fs::path path) {
+  std::ifstream objFile(path);
+
+  std::vector<float3> vertices;
+  std::vector<Triangle> planes;
+  std::vector<Edge> edges;
+
+  int32_t vertexIdx = 0;
+  int32_t triangleIdx = 0;
+
+  std::string line;
+  unsigned totalVertices, totalTriangles, lineNo = 0;
+  bool inside = false;
+  while (std::getline(objFile, line)) {
+    lineNo++;
+    if (!inside) {
+      if (line.substr(0, 14) == "element vertex") {
+        std::istringstream str(line);
+        std::string word1;
+        str >> word1;
+        str >> word1;
+        str >> totalVertices;
+        vertices.resize(totalVertices);
+      } else if (line.substr(0, 12) == "element face") {
+        std::istringstream str(line);
+        std::string word1;
+        str >> word1;
+        str >> word1;
+        str >> totalTriangles;
+        planes.resize(totalTriangles);
+      } else if (line.substr(0, 10) == "end_header")
+        inside = true;
+    } else {
+      if (totalVertices) {
+
+        totalVertices--;
+        float x, y, z;
+
+        std::istringstream str_in(line);
+        str_in >> x >> y >> z;
+        auto &pCurrentVertex = vertices[vertexIdx];
+        pCurrentVertex.x = x;
+        pCurrentVertex.y = y;
+        pCurrentVertex.z = z;
+        vertexIdx++;
+      }
+
+      else if (totalTriangles) {
+
+        totalTriangles--;
+        unsigned dummy;
+        unsigned idx1, idx2, idx3; // vertex index
+        std::istringstream str2(line);
+        if (str2 >> dummy >> idx1 >> idx2 >> idx3) {
+          auto &pCurrentTriangle = planes[triangleIdx];
+          pCurrentTriangle.i0 = idx1;
+          pCurrentTriangle.i1 = idx2;
+          pCurrentTriangle.i2 = idx3;
+          triangleIdx++;
+        }
+      }
+    }
+  }
+  for (const auto &plane : planes) {
+    edges.push_back(Edge{plane.i0, plane.i1});
+    edges.push_back(Edge{plane.i1, plane.i2});
+    edges.push_back(Edge{plane.i2, plane.i0});
+  }
+
+  float3 min = vector_t<float, 3>::max();
+  float3 max = vector_t<float, 3>::min();
+  for (const auto &vtx : vertices) {
+    min = math::min(min, vtx);
+    max = math::max(max, vtx);
+  }
+
+  return std::make_tuple(vertices, planes, edges, min, max);
+
 }
 obj_tuple ObjFromVDB(fs::path path) {
   std::vector<uint32_t> indices;
@@ -164,12 +327,13 @@ obj_tuple fileToObj(fs::path path) {
     return ObjFromVDB(path);
   if (path.extension() == ".obj")
     return ObjFromObj(path);
+  if (path.extension() == ".ply")
+    return ObjFromPly(path);
   else {
     std::cerr << "Unknown file extension in " << path.string() << std::endl;
     throw std::invalid_argument("Unknown extension");
   }
 }
-
 
 std::vector<vdb::Vec4f> generateParticles(std::string fileName, float r, genTechnique kind, bool clampToDomain) {
   auto path = resolveFile(fileName, {get<parameters::config_folder>()});

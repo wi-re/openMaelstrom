@@ -240,7 +240,7 @@ bool arguments::cmd::init(bool console, int argc, char *argv[]) {
   ifs.close();
   std::experimental::filesystem::path default_config = "";
   try{
-    default_config = resolveFile("Flow/config.json", config_folders);
+    default_config = resolveFile("DamBreak/config.json", config_folders);
     get<parameters::config_file>() = default_config.string();
   }catch(...){
     std::cout << "Could not find default configuration" << std::endl;

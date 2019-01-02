@@ -1,30 +1,68 @@
 #include <QApplication>
+#include <QtMath>
 #include <iostream>
 #include <render/util/camera.h>
 #include <utility/helpers/log.h>
 #include <utility/identifier/uniform.h>
-#include <QtMath>
 
 Camera &Camera::instance() {
   static Camera cam;
   return cam;
 }
 
-std::pair<bool, DeviceCamera> Camera::prepareDeviceCamera(){
-  // float2 resolution{1920, 1080};     ///< Resolution of the viewport/image
-  // float3 position = {0.f, 0.f, 0.f}; ///< Camera position ( eye position )
-  // float3 view = {1.f, 0.f, 0.f};     ///< Viewing direction
-  // float3 up = {0.f, 0.f, 1.f};       ///< Up direction
-  // float2 fov = {24.f, 32.f};         ///< Fov of the camera in x and y
-  // float apertureRadius = 0.f;        ///< Aperture for DOF, unused currently
-  // float focalDistance = 1.f; ///< Focal distance for DOF, unused currently
+std::pair<bool, DeviceCamera> Camera::prepareDeviceCamera() {
+    // QVector3D forward(matrices.view(2, 0), matrices.view(2, 1), matrices.view(2, 2));
+    // QVector3D strafe(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
+    // QVector3D up(matrices.view(1, 0), matrices.view(1, 1), matrices.view(1, 2));
 
-  // Matrix4x4 ViewInverse =
-  //     Matrix4x4(); ///< Inverted view matrix, generated on host side
-  // Matrix4x4 PerspInverse =
-  //     Matrix4x4(); ///< Inverted perspective matrix, generated on host side
-  // Matrix4x4 MVP = Matrix4x4(); ///< VP matrix, generated on host side
-  return std::make_pair(true, DeviceCamera{});
+  DeviceCamera cam;
+  float fovx = fov*1.f;
+  fovx = 96.f;
+  float2 resolution{(float)width, (float)height};
+float2 fov2;
+  fov2.x = fovx;
+  fov2.y = atan(tan(fovx / 180.f * CUDART_PI_F * 0.5) *
+               1.f / aspect) *
+          2.0 * 180.f / CUDART_PI_F;
+//std::cout << fov2.x << " : " << fov2.y << std::endl;
+  cam.resolution = float2{(float)width, (float)height};
+  cam.position = float3{position.x(), position.y(), position.z()};
+  cam.view = float3{forward.x(), forward.y(), forward.z()};
+  cam.up = float3{up.x(), up.y(), up.z()};
+  cam.fov = float2{fov2.x, fov2.y};
+  cam.apertureRadius = 0.04f;
+  cam.focalDistance = 4.f;
+
+  auto MVP = matrices.perspective * matrices.view;
+
+  auto mat_conv = [](auto v_i) {
+    Matrix4x4 mat;
+    mat(0, 0) = v_i(0, 0);
+    mat(1, 0) = v_i(1, 0);
+    mat(2, 0) = v_i(2, 0);
+    mat(3, 0) = v_i(3, 0);
+
+    mat(0, 1) = v_i(0, 1);
+    mat(1, 1) = v_i(1, 1);
+    mat(2, 1) = v_i(2, 1);
+    mat(3, 1) = v_i(3, 1);
+
+    mat(0, 2) = v_i(0, 2);
+    mat(1, 2) = v_i(1, 2);
+    mat(2, 2) = v_i(2, 2);
+    mat(3, 2) = v_i(3, 2);
+
+    mat(0, 3) = v_i(0, 3);
+    mat(1, 3) = v_i(1, 3);
+    mat(2, 3) = v_i(2, 3);
+    mat(3, 3) = v_i(3, 3);
+    return mat;
+  };
+
+  cam.ViewInverse = mat_conv(matrices.view.inverted().transposed());
+  cam.PerspInverse = mat_conv(matrices.perspective.inverted().transposed());
+  cam.MVP = mat_conv(MVP.inverted().transposed());
+  return std::make_pair(dirty, cam);
 }
 
 void Camera::setKeyboardModifiers([[maybe_unused]] QInputEvent *event) {}
@@ -50,30 +88,30 @@ void Camera::keyPressEvent(QKeyEvent *event) {
   case Qt::Key_Q:
     keys.q = true;
     break;
-  case Qt::Key_F1: 
-	  setPosition(QVector3D{ 150,0,-50 });
-	  setRotation(QVector3D{ -90,0,90 });
-	  break;
+  case Qt::Key_F1:
+    setPosition(QVector3D{150, 0, 50});
+    setRotation(QVector3D{180, 0, -90});
+    break;
   case Qt::Key_F2:
-	  setPosition(QVector3D{ 0,150,-50 });
-	  setRotation(QVector3D{ -90,0,0 });
-	  break;
+    setPosition(QVector3D{0, 150, 50});
+    setRotation(QVector3D{180, 0, -180});
+    break;
   case Qt::Key_F3:
-	  setPosition(QVector3D{ -150,0,-50 });
-	  setRotation(QVector3D{ -90,0,-90 });
-	  break;
+    setPosition(QVector3D{-150, 0, 50});
+    setRotation(QVector3D{180, 0, 90});
+    break;
   case Qt::Key_F4:
-	  setPosition(QVector3D{ 0,-150,-50 });
-	  setRotation(QVector3D{ -90,0,180 });
-	  break;
+    setPosition(QVector3D{0, -150, 50});
+    setRotation(QVector3D{180, 0, 0});
+    break;
   case Qt::Key_F5:
-	  setPosition(QVector3D{ 0,0,-150 });
-	  setRotation(QVector3D{ 0,0,90 });
-	  break;
+    setPosition(QVector3D{0, 0, -150});
+    setRotation(QVector3D{-90, 0, 90});
+    break;
   case Qt::Key_F6:
-	  setPosition(QVector3D{ 0,0,150 });
-	  setRotation(QVector3D{ 180,0,90 });
-	  break;
+    setPosition(QVector3D{0, 0, 150});
+    setRotation(QVector3D{90, 0, 90});
+    break;
   }
 }
 void Camera::keyReleaseEvent(QKeyEvent *event) {
@@ -99,10 +137,10 @@ void Camera::keyReleaseEvent(QKeyEvent *event) {
     keys.q = false;
     break;
   case Qt::Key_L:
-    LOG_DEBUG << "        \"camera_position\": \"" << position.x() << " " << position.y() << " "
-              << position.z() << "\"," << std::endl;
-    LOG_DEBUG << "        \"camera_angle\": \"" << rotation.x() << " " << rotation.y() << " "
-              << rotation.z() << "\"," << std::endl;
+    LOG_DEBUG << "        \"camera_position\": \"" << position.x() << " " << position.y() << " " << position.z()
+              << "\"," << std::endl;
+    LOG_DEBUG << "        \"camera_angle\": \"" << rotation.x() << " " << rotation.y() << " " << rotation.z() << "\","
+              << std::endl;
     break;
   case Qt::Key_R: {
     auto p = get<parameters::camera_position>();
@@ -181,7 +219,7 @@ void Camera::mouseMoveEvent(QMouseEvent *event) {
 
     QVector3D diff;
     diff.setZ(-rotationSpeed * (mousePos.x() - (float)xpos));
-    diff.setX(-rotationSpeed * (mousePos.y() - (float)ypos));
+    diff.setX(rotationSpeed * (mousePos.y() - (float)ypos));
     rotate(diff);
     updateViewMatrix();
 
@@ -189,22 +227,22 @@ void Camera::mouseMoveEvent(QMouseEvent *event) {
     event->accept();
   }
   if (rbuttondown) {
-    QVector3D forward(matrices.view(0, 2), matrices.view(1, 2), matrices.view(2, 2));
-    QVector3D strafe(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
-    QVector3D up(matrices.view(0, 1), matrices.view(1, 1), matrices.view(2, 1));
+    // QVector3D forward(matrices.view(0, 2), matrices.view(1, 2), matrices.view(2, 2));
+    // QVector3D strafe(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
+    // QVector3D up(matrices.view(0, 1), matrices.view(1, 1), matrices.view(2, 1));
 
-    QVector3D camFront;
-    camFront = forward.normalized();
+    //QVector3D camFront;
+    //camFront = forward.normalized();
 
-    position += camFront * (mousePos.y() - (float)ypos) * 0.01f;
+    position += forward * (mousePos.y() - (float)ypos) * 0.01f;
     updateViewMatrix();
 
     QCursor::setPos(QPoint(mousePos.x(), mousePos.y()));
     event->accept();
   }
   if (mbuttondown) {
-    QVector3D strafe(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
-    QVector3D up(matrices.view(0, 1), matrices.view(1, 1), matrices.view(2, 1));
+    //QVector3D strafe(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
+    //QVector3D up(matrices.view(0, 1), matrices.view(1, 1), matrices.view(2, 1));
 
     position -= (strafe.normalized()) * (mousePos.x() - (float)xpos) * 0.01f;
     position -= (up.normalized()) * (mousePos.y() - (float)ypos) * 0.01f;
@@ -216,6 +254,40 @@ void Camera::mouseMoveEvent(QMouseEvent *event) {
 }
 void Camera::wheelEvent(QWheelEvent *event) { setKeyboardModifiers(event); }
 void Camera::updateViewMatrix() {
+  float pitch = rotation.x() * M_PI / 180.f;
+  float yaw = rotation.z() * M_PI / 180.f;
+  float tilt = rotation.z() * M_PI / 180.f;
+  //std::cout << yaw << " : " << pitch << std::endl;
+
+  float xDirection = sin(yaw) * cos(pitch);
+  float zDirection = sin(pitch);
+  float yDirection = cos(yaw) * cos(pitch);
+  //std::cout << xDirection << " " << yDirection << " " << zDirection << std::endl;
+  float3 centerPosition{position.x(), position.y(), position.z()};
+  float3 directionToCamera = float3{xDirection, yDirection, zDirection};
+  float3 viewDirection = directionToCamera * (-1.0f);
+  float3 eyePosition = centerPosition;
+
+  auto to_vec3 = [](auto v) { return QVector3D(v.x, v.y, v.z); };
+  auto p = to_vec3(eyePosition);
+  auto v = to_vec3(viewDirection);
+  auto horz = QVector3D::crossProduct(v,QVector3D(0,0,1));
+  auto vert = QVector3D::crossProduct(p, v);
+  //auto u = vert;
+  auto u = to_vec3(float3{0, 0, 1});
+  if((v + u).length() < 0.1)
+    u = to_vec3(float3{1,0,0});
+  forward = v;
+  forward.normalize();
+  up = u;
+  up.normalize();
+  strafe = QVector3D::crossProduct(forward,up);
+  strafe.normalize();
+
+
+  matrices.view = QMatrix4x4();
+  matrices.view.lookAt(p,p + v,u);
+
   QMatrix4x4 rotM = QMatrix4x4();
   QMatrix4x4 transM;
   rotM.rotate(rotation.x(), 1.f, 0.f, 0.f);
@@ -225,16 +297,18 @@ void Camera::updateViewMatrix() {
   transM.translate(position);
 
   if (type == CameraType::firstperson) {
-    matrices.view = rotM * transM;
+    //matrices.view = rotM * transM;
   } else {
-    matrices.view = transM * rotM;
+    //matrices.view = transM * rotM;
   }
 
-  right = QVector3D(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
-  up = QVector3D(matrices.view(0, 1), matrices.view(1, 1), matrices.view(2, 1));
+  // forward = QVector3D(matrices.view(2, 0), matrices.view(2, 1), matrices.view(2, 2));
+  // right = QVector3D(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
+  // up = QVector3D(matrices.view(0, 1), matrices.view(1, 1), matrices.view(2, 1));
 
   QMatrix4x4 matrix;
   matrix.perspective((fov), aspect, znear, zfar);
+  //std::cout << fov << std::endl;
   matrices.perspective = matrix;
 
   for (auto p : programs) {
@@ -248,9 +322,7 @@ void Camera::updateViewMatrix() {
   }
   dirty = true;
 }
-bool Camera::moving() {
-  return keys.left || keys.right || keys.up || keys.down || keys.e || keys.q;
-}
+bool Camera::moving() { return keys.left || keys.right || keys.up || keys.down || keys.e || keys.q; }
 void Camera::setPerspective(float fov, float aspect, float znear, float zfar) {
   this->fov = fov;
   this->znear = znear;
@@ -302,12 +374,17 @@ void Camera::update(float deltaTime) {
       camFront.setZ(cos(qDegreesToRadians(rotation.x())) * cos(qDegreesToRadians(rotation.y())));
 
       camFront.normalize();
-      QVector3D forward(matrices.view(2, 0), matrices.view(2, 1), matrices.view(2, 2));
-      QVector3D strafe(matrices.view(0, 0), matrices.view(0, 1), matrices.view(0, 2));
-      QVector3D up(matrices.view(1, 0), matrices.view(1, 1), matrices.view(1, 2));
+    //   QVector3D forward(matrices.view(2, 0), matrices.view(2, 1), matrices.view(2, 2));
+    //   QVector3D strafe(matrices.view(0, 0), matrices.view(0, 1), matrices.view(0, 2));
+    //   QVector3D up(matrices.view(1, 0), matrices.view(1, 1), matrices.view(1, 2));
+
+    // QVector3D forward(matrices.view(2, 0), matrices.view(2, 1), matrices.view(2, 2));
+    // QVector3D strafe(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
+    // QVector3D up(matrices.view(1, 0), matrices.view(1, 1), matrices.view(1, 2));
 
       forward.normalize();
       strafe.normalize();
+      QVector3D upl = QVector3D::crossProduct(forward,strafe);
       up.normalize();
 
       if (deltaTime < 0.02f)
@@ -319,13 +396,13 @@ void Camera::update(float deltaTime) {
       if (keys.down)
         position -= (forward)*moveSpeed;
       if (keys.left)
-        position += (strafe)*moveSpeed;
-      if (keys.right)
         position -= (strafe)*moveSpeed;
+      if (keys.right)
+        position += (strafe)*moveSpeed;
       if (keys.q)
-        position += (up)*moveSpeed;
+        position += (upl)*moveSpeed;
       if (keys.e)
-        position -= (up)*moveSpeed;
+        position -= (upl)*moveSpeed;
 
       updateViewMatrix();
     }

@@ -53,13 +53,15 @@ public:
 
   QVector3D rotation = QVector3D();
   QVector3D position = QVector3D();
-  QVector3D right = QVector3D();
+  QVector3D strafe = QVector3D();
+  QVector3D forward = QVector3D();
   QVector3D up = QVector3D();
+  
 
   float rotationSpeed = 0.5f;
   float movementSpeed = 1.0f;
 
-  bool dirty = false;
+  bool dirty = true;
   struct {
     QMatrix4x4 perspective;
     QMatrix4x4 view;
