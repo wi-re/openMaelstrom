@@ -9,6 +9,10 @@
 #include <string>
 #include <memory>
 #include <utility>
+void objectLoader::appendMesh(mesh toAdd) {
+	meshes.push_back(toAdd);
+	dirty = true;
+}
 
 void objectLoader::appendObject(std::string fileName) {
   LOG_INFO << "Started loading object " << fileName << std::endl;
@@ -363,6 +367,8 @@ void objectLoader::buildBVH() {
   createGPUArrays();
 }
 void objectLoader::createGPUArrays() {
+	if (!active)
+		return;
   auto allocAndCopy = [&](auto &ptr, auto &data) {
     using T = std::decay_t<decltype(data)>::value_type;
     cudaMalloc((void **)&ptr, data.size() * sizeof(T));
@@ -411,8 +417,39 @@ objectLoader::~objectLoader() {
   for (auto &alloc : BVHnodes)
     free(alloc);
 }
+void objectLoader::reset() {
+	auto freeCUDA = [&](auto ptr) {
+		if (ptr != nullptr)
+			cudaFree(ptr);
+	};
+	freeCUDA(cuVertices);
+	freeCUDA(cuTriangles);
+	freeCUDA(cuTriIntersectionData);
+	freeCUDA(cuTriIndices);
+	freeCUDA(cuBVHLimits);
+	freeCUDA(cuBVHIndices);
+	for (auto &alloc : BVHnodes)
+		free(alloc);
+	meshes.clear();
+	merged.vertices.clear();
+	merged.triangles.clear();
+	BVHnodes.clear();
+	BVHroot = nullptr;
+	triIndicesLength = 0;
+	triIndices = nullptr;
+	CFBVHLength = 0;
+	CFBVH = nullptr;
+	cuVertices = nullptr;
+	cuTriangles = nullptr;
+	cuTriIntersectionData = nullptr;
+	cuTriIndices = nullptr;
+	cuBVHLimits = nullptr;
+	cuBVHIndices = nullptr;
+	dirty = true;
+	stored_hash = 0x0;
+}
 
 gpuBVH objectLoader::getGPUArrays() {
-	return gpuBVH{ cuTriangles , cuBVHIndices , cuBVHLimits , cuTriIntersectionData,
+	return gpuBVH{ active, cuTriangles , cuBVHIndices , cuBVHLimits , cuTriIntersectionData,
 	cuTriIndices, triIndicesLength , CFBVHLength , (int32_t)merged.vertices.size() , (int32_t)merged.triangles.size() };
 }

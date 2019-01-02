@@ -1,6 +1,6 @@
 {
   "modules": {
-    "alembic": false,
+    "alembic": true,
     "pressure": "IISPH17",
     "surfaceDistance": false,
     "volumeBoundary": true,
@@ -75,7 +75,7 @@
     "tension_akinci": 0.125,
     "tension": 0.1,
     "gravity": 9.81,
-    "radius": 0.35,
+    "radius": 0.5,
     "density": 998,
     "air_velocity": "0 0 0"
   },

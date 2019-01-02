@@ -31,7 +31,7 @@ float2 fov2;
   cam.up = float3{up.x(), up.y(), up.z()};
   cam.fov = float2{fov2.x, fov2.y};
   cam.apertureRadius = 0.04f;
-  cam.focalDistance = 4.f;
+  cam.focalDistance = 75.f;
 
   auto MVP = matrices.perspective * matrices.view;
 

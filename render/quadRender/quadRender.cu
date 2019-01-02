@@ -8,7 +8,6 @@
 #include <curand.h>
 #include <curand_kernel.h>
 #include <iostream>
-#include <math_functions.h>
 #include <sstream>
 #include <texture_types.h>
 #include <vector_functions.h>
@@ -49,16 +48,17 @@ struct Sphere {
 };
 
 __device__ Sphere spheres[] = {
-    {8, {24.0f, 0, 0}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
-    {2, {0.f, 24.f, 0}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
-    {1, {0.f, 0.f, 24.f}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
+    {16, {128.0f, 128, 128}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
+    //{2, {0.f, 24.f, 0}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
+    //{1, {0.f, 0.f, 24.f}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
 
-    {10000, {50.0f, 40.8f, -1060}, {0.1, 0.3, 0.55}, {0.175f, 0.175f, 0.25f}, DIFF},
-    {100000, {0.0f, 0, -100001.1}, {0, 0, 0}, {0.5f, 0.0f, 0.0f}, COAT},
-    {100000, {0.0f, 0, -100001.2}, {0, 0, 0}, {0.3f, 0.3f, 0.3f}, DIFF}, 
+    {10000, {50.0f, 40.8f, -1060}, {0.55, 0.55, 0.55}, {0.175f, 0.175f, 0.175f}, DIFF},
 
-    {1.1, {1.6, 1.0, 0}, {0, 0.0, 0}, {0.9f, .9f, 0.9f}, SPEC},
-    {0.3, {0.0f, -0.4, 4}, {.0, 0., .0}, {0.9f, 0.9f, 0.9f}, DIFF},
+    {100000, {0.0f, 0, -100000.}, {0, 0, 0}, {0.5f, 0.0f, 0.0f}, COAT},
+    {100000, {0.0f, 0, -100000.1}, {0, 0, 0}, {0.3f, 0.3f, 0.3f}, DIFF}, 
+
+    //{1.1, {1.6, 1.0, 0}, {0, 0.0, 0}, {0.9f, .9f, 0.9f}, SPEC},
+    //{0.3, {0.0f, -0.4, 4}, {.0, 0., .0}, {0.9f, 0.9f, 0.9f}, DIFF},
 };
 
 __device__ bool RayIntersectsBox(const gpuBVH& bvh, const float3 &originInWorldSpace, const float3 &rayInWorldSpace, int boxIdx) {
@@ -101,7 +101,7 @@ __device__ bool RayIntersectsBox(const gpuBVH& bvh, const float3 &originInWorldS
   return true;
 }
 
-__device__ bool BVH_IntersectTriangles(gpuBVH bvh, const float3 &origin, const float3 &ray,
+__device__ bool BVH_IntersectTriangles(gpuBVH& bvh, const float3 &origin, const float3 &ray,
                                        unsigned avoidSelf, int &pBestTriIdx, float3 &pointHitInWorldSpace, float &kAB,
                                        float &kBC, float &kCA, float &hitdist, float3 &boxnormal) {
   pBestTriIdx = -1;
@@ -172,7 +172,7 @@ __device__ bool BVH_IntersectTriangles(gpuBVH bvh, const float3 &origin, const f
 
 
 __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, float3 rayInWorldSpace, int avoidSelf,
-                             const gpuBVH &sceneBVH) {
+	int32_t numBVHs, gpuBVH* sceneBVH) {
   float3 mask = float3{1.0f, 1.0f, 1.0f};
   float3 accucolor = float3{0.0f, 0.0f, 0.0f};
 
@@ -182,43 +182,51 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
     int32_t pBestTriIdx = -1;
     int32_t geomtype = -1;
     const Triangle *pBestTri = NULL;
-    float3 pointHitInWorldSpace;
-    float kAB = 0.f, kBC = 0.f, kCA = 0.f;
+	float3 pointHitInWorldSpace;
 
     float d = 1e20f;
     float scene_t = 1e20f;
-    float hitdistance = 1e20f;
     float3 f = float3{0, 0, 0};
     float3 emit = float3{0, 0, 0};
     float3 x;  // intersection point
     float3 n;  // normal
     float3 nl; // oriented normal
-    float3 boxnormal = float3{0, 0, 0};
     float3 dw; // ray direction of next path segment
     Refl_t refltype;
 
     float3 rayorig = float3{originInWorldSpace.x, originInWorldSpace.y, originInWorldSpace.z};
     float3 raydir = float3{rayInWorldSpace.x, rayInWorldSpace.y, rayInWorldSpace.z};
 
-    BVH_IntersectTriangles(sceneBVH, originInWorldSpace, rayInWorldSpace, avoidSelf, pBestTriIdx, pointHitInWorldSpace,
-                           kAB, kBC, kCA, hitdistance, boxnormal);
+	float numspheres = sizeof(spheres) / sizeof(Sphere);
+	for (int32_t i = int32_t(numspheres); i--;) {
+		if ((d = spheres[i].intersect(Ray(rayorig, raydir))) && d < scene_t) {
+			scene_t = d;
+			sphere_id = i;
+			geomtype = 1;
+		}
+	}
+	int32_t bvh_idx = -1;
+	for (int32_t i = 0; i < numBVHs; ++i) {
+		if (!sceneBVH[i].active)
+			continue;
+		float kAB = 0.f, kBC = 0.f, kCA = 0.f;
+		float hitdistance = 1e20f;
+		float3 boxnormal = float3{ 0, 0, 0 };
+		float3 point;
+		BVH_IntersectTriangles(sceneBVH[i], originInWorldSpace, rayInWorldSpace, avoidSelf, pBestTriIdx, point,
+			kAB, kBC, kCA, hitdistance, boxnormal);
 
-    float numspheres = sizeof(spheres) / sizeof(Sphere);
-    for (int32_t i = int32_t(numspheres); i--;) {
-      if ((d = spheres[i].intersect(Ray(rayorig, raydir))) && d < scene_t) {
-        scene_t = d;
-        sphere_id = i;
-        geomtype = 1;
-      }
-    }
-    avoidSelf = pBestTriIdx;
+		if (hitdistance < scene_t && hitdistance > 0.002f) // EPSILON
+		{
+			pointHitInWorldSpace = point;
+			scene_t = hitdistance;
+			triangle_id = pBestTriIdx;
+			avoidSelf = pBestTriIdx;
+			geomtype = 2;
+			bvh_idx = i;
+		}
+	}
 
-    if (hitdistance < scene_t && hitdistance > 0.002f) // EPSILON
-    {
-      scene_t = hitdistance;
-      triangle_id = pBestTriIdx;
-      geomtype = 2;
-    }
 
     if (scene_t > 1e20f)
       return float3{0, 0, 0};
@@ -234,11 +242,15 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
       accucolor += (mask * emit);
     }
     if (geomtype == 2) {
-      pBestTri = &sceneBVH.pTriangles[triangle_id];
+      pBestTri = &sceneBVH[bvh_idx].pTriangles[triangle_id];
       x = pointHitInWorldSpace;
       n = math::normalize(math::castTo<float3>(pBestTri->normal));
       nl = math::dot(n, rayInWorldSpace) < 0 ? n : n * -1;
       float3 colour = float3{0.9f, 0.3f, 0.0f};
+	  if(bvh_idx == 0)
+		  colour = float3{ 0.05098f, 0.23137f, 0.494177f };
+	  if (bvh_idx == 1)
+		  colour = float3{ 0.9f, 0.3f, 0.0f };
       refltype = COAT;
       f = colour;
       emit = float3{0, 0, 0};
@@ -342,7 +354,7 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
   return float3{accucolor.x, accucolor.y, accucolor.z};
 }
 
-__global__ void CoreLoopPathTracingKernel(float3 *accumbuffer, gpuBVH sceneBVH, unsigned int framenumber,
+__global__ void CoreLoopPathTracingKernel(float3 *accumbuffer, int32_t numBVHs, gpuBVH* sceneBVH, unsigned int framenumber,
                                           unsigned int hashedframenumber) {
   int32_t x = blockIdx.x * blockDim.x + threadIdx.x;
   int32_t y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -403,7 +415,7 @@ __global__ void CoreLoopPathTracingKernel(float3 *accumbuffer, gpuBVH sceneBVH, 
     float3 rayInWorldSpace = math::normalize(apertureToImagePlane);
     float3 originInWorldSpace = aperturePoint;
 
-    finalcol += path_trace(&randState, originInWorldSpace, rayInWorldSpace, -1, sceneBVH) * (1.0f / samps);
+    finalcol += path_trace(&randState, originInWorldSpace, rayInWorldSpace, -1, numBVHs, sceneBVH) * (1.0f / samps);
   }
   accumbuffer[i] += finalcol;
   float3 tempcol = accumbuffer[i] / framenumber;
@@ -413,14 +425,17 @@ __global__ void CoreLoopPathTracingKernel(float3 *accumbuffer, gpuBVH sceneBVH, 
   surf2Dwrite(out, surfaceWriteOut, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
-void cudaRender(SceneInformation scene, cudaGraphicsResource_t resource, objectLoader &sceneMeshes, float3 *acc,
+void cudaRender(SceneInformation scene, cudaGraphicsResource_t resource, objectLoader &sceneMeshes, objectLoader &fluidMeshes, float3 *acc,
                 unsigned framenumber, unsigned hashedframes) {
   static bool once = true;
+  static gpuBVH* bvhs = nullptr;
   if (once) {
     cudaArray_t color_arr;
     cudaGraphicsMapResources(1, &resource, 0);
     cudaGraphicsSubResourceGetMappedArray(&color_arr, resource, 0, 0);
     cudaBindSurfaceToArray(surfaceWriteOut, color_arr);
+
+	cudaMalloc(&bvhs, sizeof(gpuBVH) * 2);
     once = false;
   }
   cudaMemcpyToSymbol(cScene, &scene, sizeof(SceneInformation));
@@ -431,7 +446,11 @@ void cudaRender(SceneInformation scene, cudaGraphicsResource_t resource, objectL
     griddim.x += 1;
   if (texturedim.y % blockdim.y != 0)
     griddim.y += 1;
-  CoreLoopPathTracingKernel<<<griddim, blockdim>>>((float3 *)acc, sceneMeshes.getGPUArrays(), framenumber,
+
+  gpuBVH bvhs_host[] = { fluidMeshes.getGPUArrays(),  sceneMeshes.getGPUArrays() };
+  cudaMemcpy(bvhs, bvhs_host, sizeof(gpuBVH) * 2, cudaMemcpyHostToDevice);
+
+  CoreLoopPathTracingKernel<<<griddim, blockdim>>>((float3 *)acc, 2, bvhs, framenumber,
                                                    hashedframes);
   cudaDeviceSynchronize();
 }

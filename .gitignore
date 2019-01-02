@@ -1,3 +1,4 @@
 .vscode
 *.vdb_tmp
 *.bvh
+*.abc

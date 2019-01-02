@@ -43,11 +43,15 @@ class objectLoader {
   void CreateCFBVH(); 
   void createGPUArrays();
 public:
+	bool active = true;
   ~objectLoader();
-  objectLoader(bool h = true) : hashable(h) {}
+  objectLoader(bool a = true, bool h = true) : active(a), hashable(h) {}
   void appendObject(std::string fileName);
+  void appendMesh(mesh);
   mesh mergeMeshes();
   std::size_t hash();
+
+  void reset();
 
   void buildBVH();
   gpuBVH getGPUArrays();
