@@ -23,7 +23,7 @@ __device__ __constant__ SceneInformation cScene;
 surface<void, cudaSurfaceType2D> surfaceWriteOut;
 
 struct Ray {
-  float3 orig; // ray origin
+  float3 orig; // ray origin 
   float3 dir;  // ray direction
   __device__ Ray(float3 o_, float3 d_) : orig(o_), dir(d_) {}
 };

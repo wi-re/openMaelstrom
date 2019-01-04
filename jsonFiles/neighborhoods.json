@@ -1,5 +1,5 @@
 {
-  "functions":{
+  "functions": {
     "constrained_neighborlist": {
       "description": "Module used to create a Constrained NeighborList based on the original paper. Fairly slow for adaptive simulations.",
       "folder": "neighborhood",
@@ -13,6 +13,18 @@
       "input": [ "volume" ],
       "output": [ "position", "neighborList", "neighborListLength" ],
       "temporary": [ "closestNeighbor", "supportEstimate", "support", "supportMarker", "supportMarkerCompacted", "neighborListSwap", "neighborOverhead", "neighborOverheadCount" ]
+    },
+    "compactCellList": {
+      "description": "Module used to create a Constrained NeighborList based on the original paper. Fairly slow for adaptive simulations.",
+      "folder": "neighborhood",
+      "name": "compactCellList",
+      "cell_info": true,
+      "neighbor_info": false,
+      "units": true,
+      "functions": [ "calculate_neighborlist" ],
+      "depends_any": [ { "neighborhood": "compactCell" } ],
+      "input": [ "volume" ],
+      "output": [ "position", "compactCellList", "compactCellScale", "neighborListLength" ]
     },
     "cell_neighborlist": {
       "description": "Module used to create neighborlists of particles based on spans of particle indices. One span per neighboring cell per particle.",
@@ -40,8 +52,24 @@
       "output": [ "neighborList", "neighborListLength" ]
     }
   },
-  "arrays":{ 
-    "structureArrays":{
+  "arrays":{
+    "structureArrays": {
+      "compactCellList": {
+        "description": "Contains the spans of candidate neighbors of all particles. At most this could contain 27 entries and the end marker. The spans work similar to hash_span and cell_span.",
+        "type": "compactSpan",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "compactCell" } ],
+        "size": 28
+      },
+      "compactCellScale": {
+        "description": "Contains the spans of candidate neighbors of all particles. At most this could contain 27 entries and the end marker. The spans work similar to hash_span and cell_span.",
+        "type": "int8_t",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "neighborhood": "compactCell" } ],
+        "size": 1
+      },
       "spanNeighborList": {
         "description": "Contains the spans of candidate neighbors of all particles. At most this could contain 27 entries and the end marker. The spans work similar to hash_span and cell_span.",
         "type": "neigh_span",

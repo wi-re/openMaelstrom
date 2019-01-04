@@ -55,6 +55,9 @@ MMB: Slide camera on camera plane
 class OGLWidget : public QGLWidget, protected QOpenGLFunctions_3_3_Compatibility {
 	bool rayTracing = false;
 	Renderer* rayTracer = nullptr;
+	bool mlmTracing = false;
+	Renderer* mlmTracer = nullptr;
+
 	std::vector<Renderer *> m_renderFunctions;
   std::vector<Renderer *> m_volumeRenderFunctions;
 	bool m_showText = true;

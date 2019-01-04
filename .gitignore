@@ -2,3 +2,4 @@
 *.vdb_tmp
 *.bvh
 *.abc
+**/backup

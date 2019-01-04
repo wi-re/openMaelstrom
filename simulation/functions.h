@@ -19,6 +19,7 @@
 #include <SPH/generation/volumeOutlets.cuh>
 #include <SPH/integration/simple.cuh>
 #include <SPH/neighborhood/constrained_neighborlist.cuh>
+#include <SPH/neighborhood/compactCellList.cuh>
 #include <SPH/neighborhood/cell_neighborlist.cuh>
 #include <SPH/neighborhood/basic_neighborlist.cuh>
 #include <SPH/visualization/visualization.cuh>

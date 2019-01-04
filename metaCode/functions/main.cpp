@@ -467,7 +467,7 @@ namespace SPH{
 			std::vector<std::string> tuple_arrays;
 
 			std::vector<std::string> cell_params = {  };
-			std::vector<std::string> cell_arrays = { "neighborList", "neighborListLength","spanNeighborList" };
+			std::vector<std::string> cell_arrays = { "neighborList", "neighborListLength","spanNeighborList", "compactCellScale", "compactCellList" };
 
 			auto cell_info = node.second.template_flag get("neighbor_info", false);
 			if (cell_info) {

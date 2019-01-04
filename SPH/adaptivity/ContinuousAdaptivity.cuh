@@ -72,6 +72,8 @@ namespace SPH{
 			const_array_u<arrays::neighborList> neighborList;
 			const_array_u<arrays::neighborListLength> neighborListLength;
 			const_array_u<arrays::spanNeighborList> spanNeighborList;
+			const_array_u<arrays::compactCellScale> compactCellScale;
+			const_array_u<arrays::compactCellList> compactCellList;
 
 			// virtual resources (mapped as read only)
 			// volume boundary resources (mapped as read only)
@@ -87,7 +89,7 @@ namespace SPH{
 			using virtual_info_arrays = std::tuple<>;
 			using boundaryInfo_params = std::tuple<>;
 			using boundaryInfo_arrays = std::tuple<>;
-			using neighbor_info_arrays = std::tuple<arrays::neighborList, arrays::neighborListLength, arrays::spanNeighborList>;
+			using neighbor_info_arrays = std::tuple<arrays::neighborList, arrays::neighborListLength, arrays::spanNeighborList, arrays::compactCellScale, arrays::compactCellList>;
 			using parameters = std::tuple<parameters::xsph_viscosity, parameters::adaptiveRatio, parameters::surface_levelLimit, parameters::simulationTime, parameters::surface_neighborLimit, parameters::surface_phiMin, parameters::surface_phiChange, parameters::surface_distanceFieldDistances, parameters::volumeBoundaryCounter, parameters::boundaryCounter, parameters::adaptive_resolution, parameters::adaptive_delay, parameters::blendsteps>;
 			constexpr static const bool resort = false;
 constexpr static const bool inlet = true;

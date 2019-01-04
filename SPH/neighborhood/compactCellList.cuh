@@ -1,10 +1,10 @@
 #pragma once
 #include <utility/identifier.h>
 /*
-Module used to implement a simple resorting algorithm that uses a cell entry for every actual cell in the domain. Does not support infinite domains.
+Module used to create a Constrained NeighborList based on the original paper. Fairly slow for adaptive simulations.
 */
 namespace SPH{
-	namespace cluster{
+	namespace compactCellList{
 		struct Memory{
 			// basic information
 			parameter_u<parameters::num_ptcls> num_ptcls;
@@ -14,13 +14,15 @@ namespace SPH{
 			parameter_u<parameters::max_numptcls> max_numptcls;
 
 			// parameters
-
 			// temporary resources (mapped as read/write)
 			// input resources (mapped as read only)
-			const_array_u<arrays::position> position;
+			const_array_u<arrays::volume> volume;
 
 			// output resources (mapped as read/write)
-			write_array_u<arrays::classification> classification;
+			write_array_u<arrays::position> position;
+			write_array_u<arrays::compactCellList> compactCellList;
+			write_array_u<arrays::compactCellScale> compactCellScale;
+			write_array_u<arrays::neighborListLength> neighborListLength;
 
 			// swap resources (mapped as read/write)
 			// cell resources (mapped as read only)
@@ -39,18 +41,12 @@ namespace SPH{
 			const_array_u<arrays::MLMResolution> MLMResolution;
 
 			// neighborhood resources (mapped as read only)
-			const_array_u<arrays::neighborList> neighborList;
-			const_array_u<arrays::neighborListLength> neighborListLength;
-			const_array_u<arrays::spanNeighborList> spanNeighborList;
-			const_array_u<arrays::compactCellScale> compactCellScale;
-			const_array_u<arrays::compactCellList> compactCellList;
-
 			// virtual resources (mapped as read only)
 			// volume boundary resources (mapped as read only)
 			
 			using swap_arrays = std::tuple<>;
-			using input_arrays = std::tuple<arrays::position>;
-			using output_arrays = std::tuple<arrays::classification>;
+			using input_arrays = std::tuple<arrays::volume>;
+			using output_arrays = std::tuple<arrays::position, arrays::compactCellList, arrays::compactCellScale, arrays::neighborListLength>;
 			using temporary_arrays = std::tuple<>;
 			using basic_info_params = std::tuple<parameters::num_ptcls, parameters::timestep, parameters::radius, parameters::rest_density, parameters::max_numptcls>;
 			using cell_info_params = std::tuple<parameters::grid_size, parameters::min_domain, parameters::max_domain, parameters::cell_size, parameters::hash_entries, parameters::min_coord, parameters::mlm_schemes>;
@@ -59,17 +55,19 @@ namespace SPH{
 			using virtual_info_arrays = std::tuple<>;
 			using boundaryInfo_params = std::tuple<>;
 			using boundaryInfo_arrays = std::tuple<>;
-			using neighbor_info_arrays = std::tuple<arrays::neighborList, arrays::neighborListLength, arrays::spanNeighborList, arrays::compactCellScale, arrays::compactCellList>;
+			using neighbor_info_params = std::tuple<>;
+			using neighbor_info_arrays = std::tuple<>;
 			using parameters = std::tuple<>;
 			constexpr static const bool resort = false;
 constexpr static const bool inlet = false;
 		};
 		//valid checking function
 		inline bool valid(Memory){
-			bool condition = true;
+			bool condition = false;
+			condition = condition || get<parameters::neighborhood>() == "compactCell";
 			return condition;
 		}
 		
-		void clusterParticles(Memory mem = Memory());
-	} // namspace cluster
+		void calculate_neighborlist(Memory mem = Memory());
+	} // namspace compactCellList
 }// namespace SPH

@@ -23,6 +23,7 @@ auto setup_simulation() {
 		// create neighborhoods
 		.then(&SPH::BasicNeighborList::calculate_neighborlist, "Basic Neighborlist creation", Color::burgundy)
 		.then(&SPH::spanNeighborList::calculate_neighborlist, "Cell Neighborlist creation", Color::burgundy)
+		.then(&SPH::compactCellList::calculate_neighborlist, "Compact Cell Neighborlist creation", Color::burgundy)
 		.then(&SPH::ConstrainedNeighborList::calculate_neighborlist, "Constrained Neighborlist creation", Color::burgundy)
 
 		// calculate density

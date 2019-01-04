@@ -37,6 +37,8 @@ namespace SPH{
 			const_array_u<arrays::neighborList> neighborList;
 			const_array_u<arrays::neighborListLength> neighborListLength;
 			const_array_u<arrays::spanNeighborList> spanNeighborList;
+			const_array_u<arrays::compactCellScale> compactCellScale;
+			const_array_u<arrays::compactCellList> compactCellList;
 
 			// virtual resources (mapped as read only)
 			// volume boundary resources (mapped as read only)
@@ -52,7 +54,7 @@ namespace SPH{
 			using virtual_info_arrays = std::tuple<>;
 			using boundaryInfo_params = std::tuple<>;
 			using boundaryInfo_arrays = std::tuple<>;
-			using neighbor_info_arrays = std::tuple<arrays::neighborList, arrays::neighborListLength, arrays::spanNeighborList>;
+			using neighbor_info_arrays = std::tuple<arrays::neighborList, arrays::neighborListLength, arrays::spanNeighborList, arrays::compactCellScale, arrays::compactCellList>;
 			using parameters = std::tuple<parameters::intertia_inverse, parameters::vorticity_viscosity, parameters::vorticity_nu_t, parameters::tension_akinci>;
 			constexpr static const bool resort = false;
 constexpr static const bool inlet = false;

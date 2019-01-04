@@ -210,7 +210,9 @@ void QuadRender::render() {
 	  //ls->setTransform(openvdb::math::Transform::createLinearTransform(voxelSize));
 	  //ls->setGridClass(openvdb::GRID_LEVEL_SET);
 	  float halfbandvoxels = 3.f;
-	  float mVoxelSize = minParticleSize * 0.5f;
+	  float mVoxelSize = minParticleSize * 0.60f;
+	  //mVoxelSize = 10.f * minParticleSize;
+	  //mVoxelSize = 0.00225f;
 	  float background = mVoxelSize * halfbandvoxels;
 
 	  auto transform = openvdb::math::Transform::createLinearTransform(mVoxelSize);
@@ -220,39 +222,20 @@ void QuadRender::render() {
 	  sdfGrid->setTransform(transform);
 
 	  openvdb::tools::ParticlesToLevelSet<openvdb::FloatGrid> raster(*sdfGrid);
+	  raster.setRmin(0.f);
+	  raster.setRmax(1e15f);
+
 	  raster.rasterizeSpheres(pl);
 	  raster.finalize(/*prune=*/true);
 
 	  auto numTooSmall = raster.getMinCount();
 	  auto numTooLarge = raster.getMaxCount();
 
-	  std::cout << numTooSmall << " : " << numTooLarge << std::endl;
-
-
-	  float voxelSize = minParticleSize * 0.5f;
-	  float half_width = minParticleSize * 2.f;
-	  openvdb::FloatGrid::Ptr ls = openvdb::createLevelSet<openvdb::FloatGrid>(voxelSize, 3.f);
-
-
-	  
-	  openvdb::tools::particlesToSdf(pl, *ls);
 	  std::cout << sdfGrid->activeVoxelCount() << std::endl;
 	  openvdb::io::File file("fluid.vdb");
-	  // Add the grid pointer to a container.
+
 	  openvdb::GridPtrVec grids;
 	  grids.push_back(sdfGrid);
-	  //openvdb::tools::ParticlesToLevelSet<openvdb::FloatGrid> raster(*ls);
-	  //std::cout << "Rasterizing particles" << std::endl;
-	  //raster.setGrainSize(1);//a value of zero disables threading
-	  //raster.rasterizeSpheres(pl);
-	  //raster.finalize();
-	  //raster.rasterizeSpheres(pl);
-	  //raster.rasterizeTrails(pl, 0.75);//scale offset between two instances
-
-	  //// Write out the contents of the container.
-	  file.write(grids);
-	  file.close();
-	  //exit(1); 
 
 #define PRINT(x) std::cout << #x << std::endl; x;
 	  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> filter(*sdfGrid);
@@ -260,13 +243,20 @@ void QuadRender::render() {
 	  filter.setTemporalScheme(openvdb::math::TVD_RK1);
 	  filter.setTrimming(openvdb::tools::lstrack::TrimMode::kAll);
 
-	  PRINT(filter.offset(-voxelSize * 3.f));
-	  PRINT(filter.mean(2));
-	  PRINT(filter.mean(2));
-	  PRINT(filter.offset(voxelSize * 1.5f));
-	  PRINT(filter.meanCurvature());
-	  PRINT(filter.meanCurvature());
-	  PRINT(filter.meanCurvature());
+	  const float voxelSize = float(filter.grid().voxelSize()[0]);
+
+	  PRINT(filter.offset(-mVoxelSize * 2.f));
+	  PRINT(filter.laplacian());
+	  PRINT(filter.laplacian());
+	  PRINT(filter.offset(mVoxelSize * 2.f));
+	  //PRINT(filter.meanCurvature());
+	  //PRINT(filter.meanCurvature());
+	  //PRINT(filter.meanCurvature());
+
+	  //// Write out the contents of the container.
+	  file.write(grids);
+	  file.close();
+	  //exit(1); 
 
 
 	  std::vector<openvdb::Vec3s> pts;

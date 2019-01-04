@@ -16,9 +16,9 @@ SET(CUDA_SEPARABLE_COMPILATION ON)
 SET(CUDA_HOST_COMPILATION_CPP ON)								
 SET(CMAKE_INCLUDE_CURRENT_DIR ON)	# needed for QT
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/lib)
-SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/lib)
+SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/lib) 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/bin)
- 
+  
 # Project settings
 SET(NAME openGPUSPH)													# name of the Project, variable for convenience
 project(${NAME} LANGUAGES CXX CUDA)														# set the project name using the variable
@@ -189,6 +189,14 @@ function(buildLibrary LIBRARY_NAME PREFIX)
 	_GLOB_SOURCES("${PREFIX}/${LIBRARY_NAME}")
 	add_library(${LIBRARY_NAME} ${CPP_SOURCES} ${CUDA_SOURCES} ${CPP_HEADERS} ${CUDA_HEADERS})
 	_SETUP_DEPENDENCIES(${LIBRARY_NAME} ${ARGN})
+	IF(WIN32)
+		IF("${CPP_HEADERS}" MATCHES "dummy\.h")
+			add_custom_command(
+				OUTPUT ${PREFIX}/${LIBRARY_NAME}/dummy.h
+				COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/dummy.h ${PREFIX}/${LIBRARY_NAME}/dummy.h
+				DEPENDS ${CUDA_SOURCES})
+		ENDIF()
+	ENDIF()
 endfunction(buildLibrary) 
 function(buildApplication LIBRARY_NAME PREFIX)
 	_GLOB_SOURCES("${PREFIX}/${LIBRARY_NAME}")
@@ -211,6 +219,14 @@ function(buildQTLibrary LIBRARY_NAME PREFIX)
 		_SETUP_DEPENDENCIES(${LIBRARY_NAME} ${QT_LIBRARIES} ${ARGN})
 		qt5_use_modules(${LIBRARY_NAME} Widgets OpenGL Core )    
 	ENDIF(CUDA_SOURCES AND NOT WIN32) 
+	IF(WIN32)
+		IF("${CPP_HEADERS}" MATCHES "dummy\.h")
+			add_custom_command(
+				OUTPUT ${PREFIX}/${LIBRARY_NAME}/dummy.h
+				COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/dummy.h ${PREFIX}/${LIBRARY_NAME}/dummy.h
+				DEPENDS ${CUDA_SOURCES})
+		ENDIF()
+	ENDIF()
 endfunction(buildQTLibrary)
 function(buildQTApplication EXECUTABLE_NAME)
 	set(CMAKE_AUTOMOC ON)													# automoc makes life easier with QT

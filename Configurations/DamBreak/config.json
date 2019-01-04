@@ -12,7 +12,7 @@
     "resorting": "mlm",
     "support":"none",
     "hash_width": "64bit",
-    "neighborhood": "cell_based",
+    "neighborhood": "compactCell",
     "launch_cfg": "device",
     "density": "standard"
   },
@@ -75,7 +75,7 @@
     "tension_akinci": 0.125,
     "tension": 0.1,
     "gravity": 9.81,
-    "radius": 0.5,
+    "radius": 0.35,
     "density": 998,
     "air_velocity": "0 0 0"
   },
@@ -86,8 +86,8 @@
     "render_clamp": "0 0 0",
     "camera_position2": "77.253 -40.5281 -71.0931", 
     "camera_angle2": "-60.5 0 126", 
-    "camera_position": "0 0 150", 
-    "camera_angle": "90 0 90", 
+    "camera_position": "-123 0 55.5", 
+    "camera_angle": "180 0 90", 
     "resolution": "1920 1080",
     "gl_file": "adapt_break2.mp4"
   },

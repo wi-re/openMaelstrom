@@ -42,6 +42,8 @@ namespace SPH{
 			const_array_u<arrays::neighborList> neighborList;
 			const_array_u<arrays::neighborListLength> neighborListLength;
 			const_array_u<arrays::spanNeighborList> spanNeighborList;
+			const_array_u<arrays::compactCellScale> compactCellScale;
+			const_array_u<arrays::compactCellList> compactCellList;
 
 			// virtual resources (mapped as read only)
 			parameter_u<parameters::boundaryCounter> boundaryCounter;
@@ -74,7 +76,7 @@ namespace SPH{
 			using virtual_info_arrays = std::tuple<arrays::boundaryPlanes, arrays::xbarLUT, arrays::ctrLUT, arrays::boundaryLUT, arrays::boundaryPressureLUT>;
 			using boundaryInfo_params = std::tuple<parameters::volumeBoundaryCounter>;
 			using boundaryInfo_arrays = std::tuple<arrays::volumeBoundaryVolumes, arrays::volumeBoundaryDimensions, arrays::volumeBoundaryMin, arrays::volumeBoundaryMax>;
-			using neighbor_info_arrays = std::tuple<arrays::neighborList, arrays::neighborListLength, arrays::spanNeighborList>;
+			using neighbor_info_arrays = std::tuple<arrays::neighborList, arrays::neighborListLength, arrays::spanNeighborList, arrays::compactCellScale, arrays::compactCellList>;
 			using parameters = std::tuple<parameters::xsph_viscosity, parameters::surface_levelLimit, parameters::surface_neighborLimit, parameters::surface_phiMin, parameters::surface_phiChange, parameters::surface_distanceFieldDistances>;
 			constexpr static const bool resort = false;
 constexpr static const bool inlet = false;

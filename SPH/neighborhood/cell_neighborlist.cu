@@ -15,7 +15,7 @@ cellFunctionType createCellNeighborList(SPH::spanNeighborList::Memory arrays) {
       return position_to_morton(x_i, arrays, f_i) == position_to_morton(x_j, arrays, f_i);
     else
       return position_to_morton_32(x_i, arrays, f_i) == position_to_morton_32(x_j, arrays, f_i);
-  };
+  }; 
   auto x_p = float4_u<SI::m>{FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX};
   neigh_span current{BITFIELD_MAX_VALUE, 0};
   int32_t valid_idx = 0;

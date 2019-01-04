@@ -36,6 +36,8 @@ template <launch_config cfg, template <launch_config, neighbor_list, typename...
 		T<cfg, neighbor_list::constrained, Vs...>::launch(threads, FORWARD(args));
 	else if (neighborhood == neighbor_list::cell_based)
 		T<cfg, neighbor_list::cell_based, Vs...>::launch(threads, FORWARD(args));
+	else if (neighborhood == neighbor_list::compactCell)
+		T<cfg, neighbor_list::compactCell, Vs...>::launch(threads, FORWARD(args));
 }
 
 template <launch_config cfg, template <launch_config, typename...> class T, typename... Vs,

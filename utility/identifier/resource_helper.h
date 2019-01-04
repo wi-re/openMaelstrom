@@ -41,7 +41,7 @@ enum struct launch_config { device, host, debug, pure_host, _used_for_template_s
 enum struct hash_length { bit_64, bit_32 };
 enum struct cell_ordering { z_order, linear_order };
 enum struct cell_structuring { hashed, MLM, complete };
-enum struct neighbor_list { basic, constrained, cell_based };
+enum struct neighbor_list { basic, constrained, cell_based, compactCell };
 
 //#define BITFIELD_STRUCTURES
 #define BITFIELD_WIDTH 25
@@ -67,6 +67,15 @@ struct cell_span {
 	int32_t length;
 };
 
+#define COMPACT_IDX 25
+#define COMPACT_LEN (32 - COMPACT_IDX)
+#define COMPACT_LEN_MAX ((1 << COMPACT_LEN)-1) 
+#define COMPACT_IDX_MAX ((1 << COMPACT_IDX)-1) 
+
+struct compactSpan {
+	uint32_t idx : COMPACT_IDX;
+	uint32_t len : COMPACT_LEN;
+};
 
 
 #define cudaAllocateMemory cudaMallocManaged

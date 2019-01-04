@@ -12,6 +12,7 @@
 #include <render/volumeRender/volume_render.h>
 #include <render/vdbPolyRender/vdb_poly_render.h>
 #include <render/quadRender/quadRender.h>
+#include <render/mlmRender/mlmRender.h>
 #include <utility/template/tuple_for_each.h>
 #include <boost/format.hpp>
 #include <boost/type_traits/is_assignable.hpp>
@@ -135,6 +136,7 @@ void OGLWidget::initializeGL() {
   //}
   //else {
 	   rayTracer = new QuadRender(this);
+	   mlmTracer = new MLMRender(this);
   //}
 }
 
@@ -178,7 +180,7 @@ void OGLWidget::renderFunctions() {
   for (auto uni : m_uniformMappings)
     uni.second->update();
   // Start the actual rendering process
-  if (!rayTracing) {
+  if (!rayTracing && !mlmTracing) {
 	  for (auto r : m_renderFunctions)
 		  if (r->valid())
 			  r->render();
@@ -186,9 +188,14 @@ void OGLWidget::renderFunctions() {
 		  if (r->valid())
 			  r->render();
   }
-  else
-	  if(rayTracer != nullptr)
-		rayTracer->render();
+  else if (rayTracing && !mlmTracing) {
+	  if (rayTracer != nullptr)
+		  rayTracer->render();
+  }
+  else if (!rayTracing && mlmTracing) {
+	  if (mlmTracer != nullptr)
+		  mlmTracer->render();
+  }
   glFlush();
   glFinish();
   // Wait for the frame to finish rendering

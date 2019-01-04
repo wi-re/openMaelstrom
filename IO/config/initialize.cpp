@@ -97,6 +97,9 @@ void IO::config::initParameters() {
   } else if (get<parameters::neighborhood>() == "basic") {
     get<parameters::neighborhood_kind>() = neighbor_list::basic;
   }
+  else if (get<parameters::neighborhood>() == "compactCell") {
+	  get<parameters::neighborhood_kind>() = neighbor_list::compactCell;	  
+  }
 
   // timestep
   auto &dt = get<parameters::timestep>();
