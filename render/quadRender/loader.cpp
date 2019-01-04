@@ -16,7 +16,7 @@ void objectLoader::appendMesh(mesh toAdd) {
 
 void objectLoader::appendObject(std::string fileName) {
   LOG_INFO << "Started loading object " << fileName << std::endl;
-  auto [objVertices, objTriangles, edges, minp, maxp] = generation::fileToObj(resolveFile(fileName));
+  auto [objVertices, objTriangles, edges, minp, maxp] = generation::fileToObj(resolveFile(fileName, { get<parameters::config_folder>() }));
   auto numVtx = objVertices.size();
   auto numTri = objTriangles.size();
   LOG_INFO << "Vertices:  " << numVtx << std::endl;
@@ -34,6 +34,9 @@ void objectLoader::appendObject(std::string fileName) {
   }
   for (auto &v : vertices) {
     v.normal = math::normalize(v.normal);
+  }
+  for (auto &t : triangles) {
+	  t.recalculate(vertices);
   }
   LOG_INFO << "Finished loading object " << fileName << std::endl;
   meshes.push_back(mesh{vertices, triangles});
@@ -450,6 +453,38 @@ void objectLoader::reset() {
 }
 
 gpuBVH objectLoader::getGPUArrays() {
-	return gpuBVH{ active, cuTriangles , cuBVHIndices , cuBVHLimits , cuTriIntersectionData,
+	return gpuBVH{ active, cuVertices, cuTriangles , cuBVHIndices , cuBVHLimits , cuTriIntersectionData,
 	cuTriIndices, triIndicesLength , CFBVHLength , (int32_t)merged.vertices.size() , (int32_t)merged.triangles.size() };
+}
+
+void objectLoader::tearDownMeshes() {
+	int32_t vtxCounter = merged.vertices.size();
+	for (auto& t : merged.triangles) {
+		auto vtx0 = merged.vertices[t.i0];
+		auto vtx1 = merged.vertices[t.i1];
+		auto vtx2 = merged.vertices[t.i2];
+
+		auto n0 = math::normalize(vtx0.normal);
+		auto n1 = math::normalize(vtx1.normal);
+		auto n2 = math::normalize(vtx2.normal);
+	
+		auto threshold = 1.f / 12.f * CUDART_PI_F;
+		//threshold = 0.f;
+		 
+		auto angle0 = acosf(math::dot3(n0, t.normal));
+		auto angle1 = acosf(math::dot3(n1, t.normal));
+		auto angle2 = acosf(math::dot3(n2, t.normal));
+		if (angle0 > threshold) {
+			t.i0 = vtxCounter++;
+			merged.vertices.push_back(Vertex{ vtx0.position, t.normal });
+		}
+		if (angle1 > threshold) {
+			t.i1 = vtxCounter++;
+			merged.vertices.push_back(Vertex{ vtx1.position, t.normal });
+		}
+		if (angle2 > threshold) {
+			t.i2 = vtxCounter++;
+			merged.vertices.push_back(Vertex{ vtx2.position, t.normal });
+		}
+	}
 }

@@ -59,6 +59,7 @@ struct TriangleIntersectionData {
 
 struct gpuBVH {
 	bool active = true;
+	Vertex* vertices;
 	Triangle *pTriangles;
 	uint4 *cudaBVHindexesOrTrilists;
 	BVHLimits *cudaBVHlimits;

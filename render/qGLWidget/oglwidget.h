@@ -53,6 +53,8 @@ MMB: Slide camera on camera plane
 **/
 /** This widget is used to display the simulation and some overlay text. **/
 class OGLWidget : public QGLWidget, protected QOpenGLFunctions_3_3_Compatibility {
+	bool rayTracing = false;
+	Renderer* rayTracer = nullptr;
 	std::vector<Renderer *> m_renderFunctions;
   std::vector<Renderer *> m_volumeRenderFunctions;
 	bool m_showText = true;

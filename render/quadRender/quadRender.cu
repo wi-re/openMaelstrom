@@ -51,7 +51,7 @@ __device__ Sphere spheres[] = {
     {16, {128.0f, 128, 128}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
     //{2, {0.f, 24.f, 0}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
     //{1, {0.f, 0.f, 24.f}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
-
+	 
     {10000, {50.0f, 40.8f, -1060}, {0.55, 0.55, 0.55}, {0.175f, 0.175f, 0.175f}, DIFF},
 
     {100000, {0.0f, 0, -100000.}, {0, 0, 0}, {0.5f, 0.0f, 0.0f}, COAT},
@@ -128,6 +128,7 @@ __device__ bool BVH_IntersectTriangles(gpuBVH& bvh, const float3 &origin, const 
         if (avoidSelf == idx)
           continue;
 		float4 normal = bvh.cudaTriangleIntersectionData[idx].normal;
+		float d = math::sqlength3(normal);
         float k = math::dot3(normal, ray);
         if (k == 0.0f)
           continue; 
@@ -205,16 +206,17 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
 			geomtype = 1;
 		}
 	}
+	float kAB = 0.f, kBC = 0.f, kCA = 0.f;
 	int32_t bvh_idx = -1;
 	for (int32_t i = 0; i < numBVHs; ++i) {
 		if (!sceneBVH[i].active)
 			continue;
-		float kAB = 0.f, kBC = 0.f, kCA = 0.f;
+		float ktAB = 0.f, ktBC = 0.f, ktCA = 0.f;
 		float hitdistance = 1e20f;
 		float3 boxnormal = float3{ 0, 0, 0 };
 		float3 point;
 		BVH_IntersectTriangles(sceneBVH[i], originInWorldSpace, rayInWorldSpace, avoidSelf, pBestTriIdx, point,
-			kAB, kBC, kCA, hitdistance, boxnormal);
+			ktAB, ktBC, ktCA, hitdistance, boxnormal);
 
 		if (hitdistance < scene_t && hitdistance > 0.002f) // EPSILON
 		{
@@ -224,6 +226,9 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
 			avoidSelf = pBestTriIdx;
 			geomtype = 2;
 			bvh_idx = i;
+			kAB = ktAB;
+			kBC = ktBC;
+			kCA = ktCA;
 		}
 	}
 
@@ -245,13 +250,46 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
       pBestTri = &sceneBVH[bvh_idx].pTriangles[triangle_id];
       x = pointHitInWorldSpace;
       n = math::normalize(math::castTo<float3>(pBestTri->normal));
+	  auto i0 = pBestTri->i0;
+	  auto i1 = pBestTri->i1;
+	  auto i2 = pBestTri->i2;
+
+	  auto v0 = math::castTo<float3>(sceneBVH[bvh_idx].vertices[i0].position);
+	  auto v1 = math::castTo<float3>(sceneBVH[bvh_idx].vertices[i1].position);
+	  auto v2 = math::castTo<float3>(sceneBVH[bvh_idx].vertices[i2].position);
+	  auto n0 = math::castTo<float3>(sceneBVH[bvh_idx].vertices[i0].normal);
+	  auto n1 = math::castTo<float3>(sceneBVH[bvh_idx].vertices[i1].normal);
+	  auto n2 = math::castTo<float3>(sceneBVH[bvh_idx].vertices[i2].normal);
+
+	  auto ab = v1 - v0;
+	  auto bc = v2 - v1;
+	  auto cross_ab_bc = math::cross(ab, bc);
+	  auto area = math::length(cross_ab_bc);
+
+	  auto ABx = kAB * math::distance(v0, v1);
+	  auto BCx = kBC * math::distance(v1, v2);
+	  auto CAx = kCA * math::distance(v2, v0);
+
+	  n0 *= BCx / area;
+	  n1 *= CAx / area;
+	  n2 *= ABx / area;
+
+	  n = math::normalize(n0 + n1 + n2);
+	  //return n;
+
+	 // n = math::normalize(math::castTo<float3>(kBC * n0 + kCA * n1 + kAB * n2));
+
       nl = math::dot(n, rayInWorldSpace) < 0 ? n : n * -1;
       float3 colour = float3{0.9f, 0.3f, 0.0f};
-	  if(bvh_idx == 0)
+	  if (bvh_idx == 0) {
 		  colour = float3{ 0.05098f, 0.23137f, 0.494177f };
-	  if (bvh_idx == 1)
-		  colour = float3{ 0.9f, 0.3f, 0.0f };
-      refltype = COAT;
+		  refltype = DIFF;
+		  //refltype = COAT;
+	  }
+	  if (bvh_idx == 1) {
+		  colour = float3{ 0.9f, 0.9f, 0.9f };
+		  refltype = DIFF;
+	  }
       f = colour;
       emit = float3{0, 0, 0};
       accucolor += (mask * emit);

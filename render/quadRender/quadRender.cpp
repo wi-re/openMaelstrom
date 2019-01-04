@@ -176,8 +176,8 @@ void QuadRender::render() {
   }
   framenumber++;
 
-  static auto frame = get<parameters::frame>();
-  if (frame != get<parameters::frame>()) {
+  static auto frame = -1;
+  if (frame != get<parameters::frame>() && get<parameters::frame>() > 0) {
 	  auto numptcls = get<parameters::num_ptcls>();
 	  openvdb::Vec4f* positions = new openvdb::Vec4f[numptcls];
 	  openvdb::Vec4f* velocities = new openvdb::Vec4f[numptcls];
@@ -195,11 +195,11 @@ void QuadRender::render() {
 		  pscale[i] = powf(volumes[i] / (4.f / 3.f * CUDART_PI_F), 1.f / 3.f);// *0.01f;
 	  }
 	  // add points to particle list
-	  ParticlesList pl(1, 1);
+	  ParticlesList pl(1.f, 1);
 	  const float minParticleSize = get<parameters::radius>() * scale;
 	  for (int32_t i = 0; i < numptcls; ++i) {
 		  auto p = positions[i] * scale;
-		  auto r = pscale[i] * scale * 0.5f;
+		  auto r = pscale[i] * scale;
 		  auto v = velocities[i] * scale;
 		 // pl.add(openvdb::Vec3R(p.x(), p.y(), p.z()), openvdb::Real(r), openvdb::Vec3R(v.x(), v.y(), v.z()));
 		  pl.add(openvdb::Vec3R(p.x(), p.y(), p.z()), openvdb::Real(r), openvdb::Vec3R(0,0,0));
@@ -209,10 +209,38 @@ void QuadRender::render() {
 	//	  /*background=*/static_cast<float>(voxelSize));
 	  //ls->setTransform(openvdb::math::Transform::createLinearTransform(voxelSize));
 	  //ls->setGridClass(openvdb::GRID_LEVEL_SET);
+	  float halfbandvoxels = 3.f;
+	  float mVoxelSize = minParticleSize * 0.5f;
+	  float background = mVoxelSize * halfbandvoxels;
 
-	  openvdb::FloatGrid::Ptr ls = openvdb::createLevelSet<openvdb::FloatGrid>(minParticleSize*0.33333f, 3.0);
+	  auto transform = openvdb::math::Transform::createLinearTransform(mVoxelSize);
+
+	  auto sdfGrid = openvdb::FloatGrid::create(background);
+	  sdfGrid->setGridClass(openvdb::GRID_LEVEL_SET);
+	  sdfGrid->setTransform(transform);
+
+	  openvdb::tools::ParticlesToLevelSet<openvdb::FloatGrid> raster(*sdfGrid);
+	  raster.rasterizeSpheres(pl);
+	  raster.finalize(/*prune=*/true);
+
+	  auto numTooSmall = raster.getMinCount();
+	  auto numTooLarge = raster.getMaxCount();
+
+	  std::cout << numTooSmall << " : " << numTooLarge << std::endl;
+
+
+	  float voxelSize = minParticleSize * 0.5f;
+	  float half_width = minParticleSize * 2.f;
+	  openvdb::FloatGrid::Ptr ls = openvdb::createLevelSet<openvdb::FloatGrid>(voxelSize, 3.f);
+
+
+	  
 	  openvdb::tools::particlesToSdf(pl, *ls);
-	  std::cout << ls->activeVoxelCount() << std::endl;
+	  std::cout << sdfGrid->activeVoxelCount() << std::endl;
+	  openvdb::io::File file("fluid.vdb");
+	  // Add the grid pointer to a container.
+	  openvdb::GridPtrVec grids;
+	  grids.push_back(sdfGrid);
 	  //openvdb::tools::ParticlesToLevelSet<openvdb::FloatGrid> raster(*ls);
 	  //std::cout << "Rasterizing particles" << std::endl;
 	  //raster.setGrainSize(1);//a value of zero disables threading
@@ -221,42 +249,104 @@ void QuadRender::render() {
 	  //raster.rasterizeSpheres(pl);
 	  //raster.rasterizeTrails(pl, 0.75);//scale offset between two instances
 
-	  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> filterer(*ls);
-	  //filterer.setGrainSize(0);
-	  openvdb::tools::LevelSetTracker<openvdb::FloatGrid> tracker(*ls);
-	  //tracker.setGrainSize(0);
-#define PRINT(x) std::cout << #x << std::endl; x;
-	  PRINT(filterer.offset(minParticleSize));
-	  PRINT(filterer.track());
-	  PRINT(tracker.dilate());
-	  PRINT(tracker.track());
-	  //PRINT(tracker.resize(3.0));
-	  PRINT(filterer.mean(2));
-	  PRINT(filterer.mean(2));
-	  PRINT(filterer.track());
-	  PRINT(tracker.erode());
-	  //PRINT(tracker.resize(1.5));
-	  PRINT(tracker.track());
-	  PRINT(filterer.meanCurvature());
-	  PRINT(filterer.meanCurvature());
-	  PRINT(filterer.meanCurvature());
-	  PRINT(filterer.meanCurvature());
-	  PRINT(filterer.track());
+	  //// Write out the contents of the container.
+	  file.write(grids);
+	  file.close();
+	  //exit(1); 
 
-	  std::vector<openvdb::Vec3s> points;
+#define PRINT(x) std::cout << #x << std::endl; x;
+	  openvdb::tools::LevelSetFilter<openvdb::FloatGrid> filter(*sdfGrid);
+	  filter.setSpatialScheme(openvdb::math::FIRST_BIAS);
+	  filter.setTemporalScheme(openvdb::math::TVD_RK1);
+	  filter.setTrimming(openvdb::tools::lstrack::TrimMode::kAll);
+
+	  PRINT(filter.offset(-voxelSize * 3.f));
+	  PRINT(filter.mean(2));
+	  PRINT(filter.mean(2));
+	  PRINT(filter.offset(voxelSize * 1.5f));
+	  PRINT(filter.meanCurvature());
+	  PRINT(filter.meanCurvature());
+	  PRINT(filter.meanCurvature());
+
+
+	  std::vector<openvdb::Vec3s> pts;
 	  std::vector<openvdb::Vec4I> quads;
 	  std::vector<openvdb::Vec3I> triangles;
 
 	  //openvdb::tools::volumeToMesh(*ls, points, triangles, quads, 0.01, 0);
+	  float iso = 0.f;
+	  float adaptivity = 0.083f;
 	  std::cout << "Meshing particles to level set" << std::endl;
-	  openvdb::tools::volumeToMesh(*ls, points, triangles, quads, 0.0, 0.083);
+	  openvdb::tools::VolumeToMesh mesher(iso, adaptivity);
+	  const openvdb::tools::PointList& points = mesher.pointList();
+	  openvdb::tools::PolygonPoolList& polygonPoolList = mesher.polygonPoolList();
 
-	  std::cout << "points " << points.size() << std::endl;
-	  std::cout << "triangles " << triangles.size() << std::endl;
-	  std::cout << "quads " << quads.size() << std::endl;
-	  std::vector<Vertex> verts;
+	  const char exteriorFlag = char(openvdb::tools::POLYFLAG_EXTERIOR);
+	  const char seamLineFlag = char(openvdb::tools::POLYFLAG_FRACTURE_SEAM);
+
+	  mesher(*sdfGrid);
+	  auto npoints = mesher.pointListSize();
+	  std::cout << npoints << std::endl;
+
+	  // index 0 --> interior, not on seam
+	  // index 1 --> interior, on seam
+	  // index 2 --> surface,  not on seam
+	  // index 3 --> surface,  on seam
+	  int32_t nquads[4] = { 0, 0, 0, 0 };
+	  int32_t ntris[4] = { 0, 0, 0, 0 };
+	  for (size_t n = 0, N = mesher.polygonPoolListSize(); n < N; ++n) {
+		  const openvdb::tools::PolygonPool& polygons = polygonPoolList[n];
+		  for (size_t i = 0, I = polygons.numQuads(); i < I; ++i) {
+			  int flags = (((polygons.quadFlags(i) & exteriorFlag) != 0) << 1)
+				  | ((polygons.quadFlags(i) & seamLineFlag) != 0);
+			  ++nquads[flags];
+		  }
+		  for (size_t i = 0, I = polygons.numTriangles(); i < I; ++i) {
+			  int flags = (((polygons.triangleFlags(i) & exteriorFlag) != 0) << 1)
+				  | ((polygons.triangleFlags(i) & seamLineFlag) != 0);
+			  ++ntris[flags];
+		  }
+	  }
+	  int32_t nverts[4] = {
+		  nquads[0] * 4 + ntris[0] * 3,
+		  nquads[1] * 4 + ntris[1] * 3,
+		  nquads[2] * 4 + ntris[2] * 3,
+		  nquads[3] * 4 + ntris[3] * 3
+	  };
+	  std::vector<int32_t> verts[4];
+	  for (int flags = 0; flags < 4; ++flags) {
+		  verts[flags].resize(nverts[flags]);
+	  }
+	  int32_t iquad[4] = { 0, 0, 0, 0 };
+	  int32_t itri[4] = { nquads[0] * 4, nquads[1] * 4, nquads[2] * 4, nquads[3] * 4 };
+
+	  for (size_t n = 0, N = mesher.polygonPoolListSize(); n < N; ++n) {
+		  const openvdb::tools::PolygonPool& polygons = polygonPoolList[n];
+		  // Copy quads
+		  for (size_t i = 0, I = polygons.numQuads(); i < I; ++i) {
+			  const openvdb::Vec4I& quad = polygons.quad(i);
+			  int flags = (((polygons.quadFlags(i) & exteriorFlag) != 0) << 1)
+				  | ((polygons.quadFlags(i) & seamLineFlag) != 0);
+			  verts[flags][iquad[flags]++] = quad[0];
+			  verts[flags][iquad[flags]++] = quad[1];
+			  verts[flags][iquad[flags]++] = quad[2];
+			  verts[flags][iquad[flags]++] = quad[3];
+		  }
+		  // Copy triangles (adaptive mesh)
+		  for (size_t i = 0, I = polygons.numTriangles(); i < I; ++i) {
+			  const openvdb::Vec3I& triangle = polygons.triangle(i);
+			  int flags = (((polygons.triangleFlags(i) & exteriorFlag) != 0) << 1)
+				  | ((polygons.triangleFlags(i) & seamLineFlag) != 0);
+			  verts[flags][itri[flags]++] = triangle[0];
+			  verts[flags][itri[flags]++] = triangle[1];
+			  verts[flags][itri[flags]++] = triangle[2];
+		  }
+
+
+	  }
+
+	  std::vector<Vertex> vtxs;
 	  std::vector<Triangle> tris;
-
 	  auto getNormal = [](auto e0, auto e1, auto e2) {
 		  auto e1_e0 = e1 - e0;
 		  auto e2_e0 = e2 - e0;
@@ -267,48 +357,59 @@ void QuadRender::render() {
 		  else
 			  return float4{ 0.f, 1.f, 0.f,0.f };
 	  };
-	  for (auto& v : points) {
-		  verts.push_back(Vertex{ float3{v.x() / scale, v.y() / scale, v.z() / scale }, float3{0.f, 0.f, 0.f} });
+	  for(int32_t i = 0; i < npoints; ++i){
+		  auto& v = points[i];
+		  vtxs.push_back(Vertex{ float3{v.x() / scale, v.y() / scale, v.z() / scale }, float3{0.f, 0.f, 0.f} });
 	  }
-	  for (auto& t : triangles) {
-		  auto i0 = (int32_t)t[0];
-		  auto i1 = (int32_t)t[1];
-		  auto i2 = (int32_t)t[2];
-		  auto e0 = verts[i0].position;
-		  auto e1 = verts[i1].position;
-		  auto e2 = verts[i2].position;
 
-		  auto n1 = getNormal(e0, e1, e2);
-		  verts[i0].normal += n1;
-		  verts[i1].normal += n1;
-		  verts[i2].normal += n1;
+	  for (int flags = 0; flags < 4; ++flags) {
+		  if (!nquads[flags] && !ntris[flags]) continue;
+		  std::cout << "flag : " << flags << " -> num quads = " << nquads[flags] << std::endl;
+		  std::cout << "flag : " << flags << " -> num tris  = " << ntris[flags] << std::endl;
+		  std::cout << nquads[flags] << " : " << ntris[flags] << std::endl;
+		  for (int32_t i = 0; i < nquads[flags]; ++i) {
+			  int32_t i0 = verts[flags][i * 4 + 0];
+			  int32_t i1 = verts[flags][i * 4 + 1];
+			  int32_t i2 = verts[flags][i * 4 + 2];
+			  int32_t i3 = verts[flags][i * 4 + 3];
 
-		  tris.push_back(Triangle(t.x(), t.y(), t.z(), verts));
+			  auto e0 = vtxs[i0].position;
+			  auto e1 = vtxs[i1].position;
+			  auto e2 = vtxs[i2].position;
+			  auto e3 = vtxs[i3].position;
+
+			  auto n1 = getNormal(e0, e1, e2);
+			  auto n2 = getNormal(e2, e3, e0);
+			  vtxs[i0].normal += n1 + n2;
+			  vtxs[i1].normal += n1;
+			  vtxs[i2].normal += n1 + n2;
+			  vtxs[i3].normal += n2;
+
+			  tris.push_back(Triangle(i0, i1, i2, vtxs));
+			  tris.push_back(Triangle(i2, i3, i0, vtxs));
+		  }
+		  for (int32_t i = 0; i < ntris[flags]; ++i) {
+			  int32_t i0 = verts[flags][i * 3 + nquads[flags] * 4 + 0];
+			  int32_t i1 = verts[flags][i * 3 + nquads[flags] * 4 + 1];
+			  int32_t i2 = verts[flags][i * 3 + nquads[flags] * 4 + 2];
+			  auto e0 = vtxs[i0].position;
+			  auto e1 = vtxs[i1].position;
+			  auto e2 = vtxs[i2].position;
+
+			  auto n1 = getNormal(e0, e1, e2);
+			  vtxs[i0].normal += n1;
+			  vtxs[i1].normal += n1;
+			  vtxs[i2].normal += n1;
+			  tris.push_back(Triangle(i0,i1,i2, vtxs));
+		  }
 	  }
-	  for (auto& q : quads) {
-		  auto i0 = (int32_t)q[0];
-		  auto i1 = (int32_t)q[1];
-		  auto i2 = (int32_t)q[2];
-		  auto i3 = (int32_t)q[3];
-		  auto e0 = verts[i0].position;
-		  auto e1 = verts[i1].position;
-		  auto e2 = verts[i2].position;
-		  auto e3 = verts[i3].position;
-
-		  auto n1 = getNormal(e0, e1, e2);
-		  auto n2 = getNormal(e2, e3, e0);
-		  verts[i0].normal += n1 + n2;
-		  verts[i1].normal += n1;
-		  verts[i2].normal += n1 + n2;
-		  verts[i3].normal += n2;
-
-		  tris.push_back(Triangle(q.x(), q.y(), q.z(), verts));
-		  tris.push_back(Triangle(q.z(), q.w(), q.x(), verts));
-	  }
-	  for (auto &v : verts) {
+	  for (auto &v : vtxs) {
 		  v.normal = math::normalize3(v.normal);
 	  }
-	  mesh m{ verts, tris };
+	  std::cout << "num vertices : " << vtxs.size() << std::endl;
+	  std::cout << "num triangles: " << tris.size() << std::endl;
+
+	  mesh m{ vtxs, tris };
 	  fluidLoader.active = true;
 	  std::cout << "Resetting fluid BVH" << std::endl;
 	  fluidLoader.reset();
@@ -329,6 +430,7 @@ void QuadRender::render() {
 
 	  cudaMemset(accumulatebuffer, 1, h_scene.width * h_scene.height * sizeof(float3));
 	  framenumber = 1;
+	  cuda_particleSystem::instance().running = false;
   }
 
   cudaRender(h_scene, renderedResourceOut, loader, fluidLoader, accumulatebuffer, framenumber, uniform_dist(e1));
@@ -345,16 +447,17 @@ void QuadRender::render() {
 }
 
 void QuadRender::prepCUDAscene() {
-  auto scenefile = "C:/dev/source/maelstrom/Configurations/DamBreak/Volumes/pillars.vdb";
-  loader.appendObject(scenefile);
+	//auto scenefile = "C:/dev/source/openMaelstrom/Configurations/DamBreak/Volumes/pillars.obj";
+	//loader.appendObject(scenefile);
+
+	auto boundaryvolumes = get<parameters::boundary_volumes>();
+	for (auto& b : boundaryvolumes) {
+		loader.appendObject(b.fileName.value);
+	}
   objects = loader.mergeMeshes();
+  loader.tearDownMeshes();
   loader.buildBVH();
 
-  //fluidLoader.active = true;
-  //fluidLoader.appendObject("C:/dev/source/maelstrom/Configurations/DamBreak/Volumes/Adaptive.vdb");
-  ////fluidLoader.appendMesh(m);
-  //fluidLoader.buildBVH();
-  //fluidLoader.active = true;
 
   LOG_INFO << "Rendering data initialised and copied to CUDA global memory\n" << std::endl;
 }

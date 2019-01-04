@@ -33,4 +33,5 @@ struct Triangle {
   std::tuple<Vertex, Vertex, Vertex> getVertices(const std::vector<Vertex>& vtx);
   std::tuple<float3, float3, float3> getVertices(const std::vector<float3>& vtx);
   std::pair<float4, float4> getAABB();
+  void recalculate(std::vector<Vertex>& vtx);
 };

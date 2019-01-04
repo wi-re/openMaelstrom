@@ -51,6 +51,8 @@ public:
   mesh mergeMeshes();
   std::size_t hash();
 
+  void tearDownMeshes();
+
   void reset();
 
   void buildBVH();

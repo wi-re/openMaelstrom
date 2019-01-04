@@ -111,8 +111,8 @@ void OGLWidget::initializeGL() {
   hScene.m_camera = cam;
 
   // Setup the basic render functions that currently exist
-  constexpr auto rayTracing = false;
-  if (!rayTracing) {
+  //constexpr auto rayTracing = true;
+  //if (!rayTracing) {
 	   if (get<parameters::volumeBoundary>() == true)
 	     m_renderFunctions.push_back(new volumeBoundaryRender(this));
 	   m_renderFunctions.push_back(new ParticleRenderer(this));
@@ -132,10 +132,10 @@ void OGLWidget::initializeGL() {
 	   for (auto &fluidVolume : get<parameters::outlet_volumes>()) {
 	     m_volumeRenderFunctions.push_back(new volumeRender(this, fluidVolume.fileName.value));
 	   }
-  }
-  else {
-	  m_renderFunctions.push_back(new QuadRender(this));
-  }
+  //}
+  //else {
+	   rayTracer = new QuadRender(this);
+  //}
 }
 
 SceneInformation& hostScene(){ 
@@ -178,12 +178,17 @@ void OGLWidget::renderFunctions() {
   for (auto uni : m_uniformMappings)
     uni.second->update();
   // Start the actual rendering process
-  for (auto r : m_renderFunctions)
-    if (r->valid())
-      r->render();
-  for (auto r : m_volumeRenderFunctions)
-    if (r->valid())
-      r->render();
+  if (!rayTracing) {
+	  for (auto r : m_renderFunctions)
+		  if (r->valid())
+			  r->render();
+	  for (auto r : m_volumeRenderFunctions)
+		  if (r->valid())
+			  r->render();
+  }
+  else
+	  if(rayTracer != nullptr)
+		rayTracer->render();
   glFlush();
   glFinish();
   // Wait for the frame to finish rendering
@@ -283,7 +288,8 @@ void OGLWidget::paintEvent(QPaintEvent *) {
   for (auto r : m_volumeRenderFunctions)
     if (r->valid())
       r->update();
-
+  if (rayTracer != nullptr)
+	  rayTracer->update();
 
   renderFunctions();
 

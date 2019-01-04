@@ -99,6 +99,7 @@ void OGLWidget::keyPressEvent(QKeyEvent *event) {
   case Qt::Key_0: { set_colormap(-2.f, 2.f, false, "adaptiveClassification", "RdBu"); }break;
   case Qt::Key_Minus: { set_colormap(min, max, scaling, buf, map, flipped); }break;
   case Qt::Key_O: { *parameters::dumpNextframe::ptr = 1; } break;
+  case Qt::Key_F8: {rayTracing = !rayTracing; } break;
   }
   Camera::instance().keyPressEvent(event);
 }
