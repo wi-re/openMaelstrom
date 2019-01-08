@@ -223,9 +223,9 @@ __device__  rayHit rayIntersectFluid(Ray worldRay) {
 			return true;
 		}, worldRay.orig + math::max(aabb.tmin - 2.f, 0.f) * worldRay.dir, worldRay.dir);
 		if(hit == true) 
-			return rayHit{hitPosition, math::distance3(worldRay.orig, hitPosition), -normal, true};
+			return rayHit{hitPosition, math::distance3(worldRay.orig, hitPosition), math::abs(-normal), true};
 	}
-	return rayHit{ float3{FLT_MAX, FLT_MAX, FLT_MAX}, FLT_MAX, float3{1.f,0.f,0.f}, false };
+	return rayHit{ float3{FLT_MAX, FLT_MAX, FLT_MAX}, FLT_MAX, float3{1.f,0.f,0.f}, false }; 
 }
 
 __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, float3 rayInWorldSpace) {
