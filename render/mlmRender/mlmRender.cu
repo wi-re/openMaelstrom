@@ -10,7 +10,7 @@
 #include <utility/math.h>
 #include <vector_functions.h>
 #include <vector_types.h>
-#define DEBUG_AABB
+//#define DEBUG_AABB
 
 __device__ __constant__ SceneInformation cScene;
 __device__ __constant__ FluidSystem fluidSystem;
@@ -205,11 +205,11 @@ __device__  rayHit rayIntersectFluid(Ray worldRay) {
 #ifdef DEBUG_AABB
 		float3 aabb_min = worldRay.orig + aabb.tmin * worldRay.dir;
 		float3 aabb_max = worldRay.orig + aabb.tmax * worldRay.dir;
-		//// DEBUG render for AABB
-		//if (aabb.tmin >= 0.f)
-		//	return rayHit{ aabb_min, aabb.tmin, math::abs(aabb_normal(aabb_min)), true };
-		//else
-		//	return rayHit{ aabb_max, aabb.tmax, math::abs(aabb_normal(aabb_max)), true };
+		// DEBUG render for AABB
+		if (aabb.tmin >= 0.f)
+			return rayHit{ aabb_min, aabb.tmin, math::abs(aabb_normal(aabb_min)), true };
+		else
+			return rayHit{ aabb_max, aabb.tmax, math::abs(aabb_normal(aabb_max)), true };
 #endif
 		bool hit = false;
 		float3 hitPosition;
