@@ -23,6 +23,7 @@
 #include <SPH/neighborhood/cell_neighborlist.cuh>
 #include <SPH/neighborhood/basic_neighborlist.cuh>
 #include <SPH/visualization/visualization.cuh>
+#include <SPH/render/auxilliaryMLM.cuh>
 #include <SPH/resort/cluster.cuh>
 #include <SPH/resort/resort.cuh>
 #include <SPH/resort/resort_mlm.cuh>

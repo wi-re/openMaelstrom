@@ -249,7 +249,7 @@ add_custom_target(config ALL
 	COMMAND ${CMAKE_BINARY_DIR}/bin/arrays ${CMAKE_SOURCE_DIR}/utility/identifier/arrays
 	COMMAND ${CMAKE_BINARY_DIR}/bin/functions ${CMAKE_SOURCE_DIR}/functions.json ${CMAKE_SOURCE_DIR}/simulation/functions.h ${CMAKE_SOURCE_DIR}
 	COMMAND ${CMAKE_BINARY_DIR}/bin/uniforms ${CMAKE_SOURCE_DIR}/utility/identifier/uniform
-	COMMAND ${CMAKE_BINARY_DIR}/bin/LUTCode
+	COMMAND ${CMAKE_BINARY_DIR}/bin/LUTCode 
 	ALL
 )  
 # Next build the utility system
@@ -270,7 +270,7 @@ foreach(MODULE ${RENDER_MODULES})
 	add_dependencies(${MODULE} utility)
 endforeach(MODULE)	
 # Build the UI part of the code last
-#buildQTLibrary(openGLRenderer "${CMAKE_SOURCE_DIR}")
+#buildQTLibrary(openGLRenderer "${CMAKE_SOURCE_DIR}") 
 buildQTApplication(gui utility simulation) 
 buildApplication(consoleParticles "${CMAKE_SOURCE_DIR}" utility simulation )
  

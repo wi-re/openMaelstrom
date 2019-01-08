@@ -16,7 +16,7 @@ public:
      
   GLuint defer_VAO;
   QOpenGLShaderProgram *quad_programID; 
-   
+    
   GLuint renderedTextureOut;
   cudaGraphicsResource_t renderedResourceOut; 
    
@@ -27,4 +27,4 @@ public:
 };
 #endif
 
-void cudaMLMRender(SceneInformation scene, cudaGraphicsResource_t resource, FluidSystem fsys, float3 *accumulateBuffer, unsigned framenumber, unsigned hashedframes);
+void cudaMLMRender(SceneInformation scene, cudaGraphicsResource_t resource, FluidMemory fmem, FluidSystem fsys, float3 *accumulateBuffer, unsigned framenumber, unsigned hashedframes);

@@ -12,7 +12,7 @@
 #include <texture_types.h>
 
 
-enum struct array_enum{adaptiveMergeable, adaptiveMergeCounter, adaptiveNumPtcls, adaptiveClassification, adaptiveSplitIndicator, adaptiveSplitIndicatorCompacted, adaptiveParentIndex, adaptiveParentVolume, adaptiveParentPosition, maxVelocity, cflValue, particleNormal, angularVelocity, boundaryLUT, boundaryPressureLUT, xbarLUT, ctrLUT, boundaryPlanes, volumeBoundaryVolumes, volumeBoundaryDimensions, volumeBoundaryMin, volumeBoundaryMax, decisionBuffer, surface_idxBuffer, markerBuffer, distanceBuffer, changeBuffer, position, acceleration, velocity, renderIntensity, volume, lifetime, pressure, density, particleIndex, particleIndexCompact, resortArray4, resortArray, dfsphDpDt, dfsphAlpha, dfsphRhoStar, dfsphKappa, dfsphKappaDivergence, iisphSum, iisphDii, iisphAiiOld, omega, alpha, gamma, sigma, iisphDensityAdvection, iisphDensityIteration, kernelBuffer, velocityAdvection, iisphSource, iisphOmega, iisphVolume, iisphAii, iisphAcceleration, iisphVolumeError, inletPositions, inletCounter, volumeOutletVolumes, volumeOutletDimensions, volumeOutletMin, volumeOutletMax, volumeOutletRate, volumeOutletRateAccumulator, compactCellList, compactCellScale, spanNeighborList, neighborList, neighborListLength, classification, resortIndex, ZOrder_64, ZOrder_32, cellSpanSwap, cellSpan, MLMResolution, cellparticleIndex, compactparticleIndex, hashMap, particleparticleIndex, cellBegin, cellEnd, support, supportEstimate, neighborCount, supportMarker, supportMarkerCompacted, closestNeighbor, closestNeighbor_f, neighborOverhead, neighborOverheadCount, neighborListSwap};
+enum struct array_enum{adaptiveMergeable, adaptiveMergeCounter, adaptiveNumPtcls, adaptiveClassification, adaptiveSplitIndicator, adaptiveSplitIndicatorCompacted, adaptiveParentIndex, adaptiveParentVolume, adaptiveParentPosition, maxVelocity, cflValue, particleNormal, angularVelocity, boundaryLUT, boundaryPressureLUT, xbarLUT, ctrLUT, boundaryPlanes, volumeBoundaryVolumes, volumeBoundaryDimensions, volumeBoundaryMin, volumeBoundaryMax, decisionBuffer, surface_idxBuffer, markerBuffer, distanceBuffer, changeBuffer, position, acceleration, velocity, renderIntensity, volume, lifetime, pressure, density, particleIndex, particleIndexCompact, resortArray4, resortArray, dfsphDpDt, dfsphAlpha, dfsphRhoStar, dfsphKappa, dfsphKappaDivergence, iisphSum, iisphDii, iisphAiiOld, omega, alpha, gamma, sigma, iisphDensityAdvection, iisphDensityIteration, kernelBuffer, velocityAdvection, iisphSource, iisphOmega, iisphVolume, iisphAii, iisphAcceleration, iisphVolumeError, inletPositions, inletCounter, volumeOutletVolumes, volumeOutletDimensions, volumeOutletMin, volumeOutletMax, volumeOutletRate, volumeOutletRateAccumulator, compactCellList, compactCellScale, spanNeighborList, neighborList, neighborListLength, auxHashTable, previousPosition, auxCellInformation, auxCellSurface, classification, resortIndex, ZOrder_64, ZOrder_32, cellSpanSwap, cellSpan, MLMResolution, cellparticleIndex, compactparticleIndex, hashMap, particleparticleIndex, cellBegin, cellEnd, support, supportEstimate, neighborCount, supportMarker, supportMarkerCompacted, closestNeighbor, closestNeighbor_f, neighborOverhead, neighborOverheadCount, neighborListSwap};
 
 #include <utility/identifier/resource_helper.h>
 template<typename T, typename = std::enable_if_t<std::is_same<array_enum, std::decay_t<decltype(T::identifier)>>::value>>
@@ -1578,6 +1578,90 @@ struct neighborListLength{
 	template<class T> static inline auto& get_member(T& var) { return var.neighborListLength;}
 };
 
+struct auxHashTable{
+	using type = hash_span;
+	using unit_type = hash_span;
+	static constexpr const array_enum identifier = array_enum::auxHashTable;
+	static constexpr const auto variableName = "auxHashTable";
+	static hash_span* ptr;
+	static size_t alloc_size;
+	static constexpr const auto description = ".";
+
+	static constexpr const memory_kind kind = memory_kind::particleData;
+
+	static void defaultAllocate();
+	static void leanAllocate();
+	static void allocate(size_t size);
+	static void free();
+	operator type*();
+	type& operator[](size_t idx);
+	static bool valid();
+	template<class T> static inline auto& get_member(T& var) { return var.auxHashTable;}
+};
+
+struct previousPosition{
+	using type = float4;
+	using unit_type = float4;
+	static constexpr const array_enum identifier = array_enum::previousPosition;
+	static constexpr const auto variableName = "previousPosition";
+	static float4* ptr;
+	static size_t alloc_size;
+	static constexpr const auto description = ".";
+
+	static constexpr const memory_kind kind = memory_kind::particleData;
+
+	static void defaultAllocate();
+	static void leanAllocate();
+	static void allocate(size_t size);
+	static void free();
+	operator type*();
+	type& operator[](size_t idx);
+	static bool valid();
+	template<class T> static inline auto& get_member(T& var) { return var.previousPosition;}
+};
+
+struct auxCellInformation{
+	using type = cellInformation;
+	using unit_type = cellInformation;
+	static constexpr const array_enum identifier = array_enum::auxCellInformation;
+	static constexpr const auto variableName = "auxCellInformation";
+	static cellInformation* ptr;
+	static size_t alloc_size;
+	static constexpr const auto description = ".";
+
+	static constexpr const memory_kind kind = memory_kind::particleData;
+
+	static void defaultAllocate();
+	static void leanAllocate();
+	static void allocate(size_t size);
+	static void free();
+	operator type*();
+	type& operator[](size_t idx);
+	static bool valid();
+	template<class T> static inline auto& get_member(T& var) { return var.auxCellInformation;}
+};
+
+struct auxCellSurface{
+	using type = cellSurface;
+	using unit_type = cellSurface;
+	static constexpr const array_enum identifier = array_enum::auxCellSurface;
+	static constexpr const auto variableName = "auxCellSurface";
+	static cellSurface* ptr;
+	static size_t alloc_size;
+	static constexpr const auto description = ".";
+
+	static constexpr const memory_kind kind = memory_kind::particleData;
+
+	static void defaultAllocate();
+	static void leanAllocate();
+	static void allocate(size_t size);
+	static void free();
+	operator type*();
+	type& operator[](size_t idx);
+	static bool valid();
+	template<class T> static inline auto& get_member(T& var) { return var.auxCellSurface;}
+};
+
 struct classification{
 	using type = int32_t;
 	using unit_type = int32_t;
@@ -2065,10 +2149,10 @@ struct neighborListSwap{
 
 
 }
-extern std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::hashMap, arrays::particleparticleIndex, arrays::cellBegin, arrays::cellEnd, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount, arrays::neighborListSwap> allocations_list;
-extern std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::boundaryLUT, arrays::boundaryPressureLUT, arrays::xbarLUT, arrays::ctrLUT, arrays::boundaryPlanes, arrays::volumeBoundaryVolumes, arrays::volumeBoundaryDimensions, arrays::volumeBoundaryMin, arrays::volumeBoundaryMax, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::inletPositions, arrays::inletCounter, arrays::volumeOutletVolumes, arrays::volumeOutletDimensions, arrays::volumeOutletMin, arrays::volumeOutletMax, arrays::volumeOutletRate, arrays::volumeOutletRateAccumulator, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::hashMap, arrays::particleparticleIndex, arrays::cellBegin, arrays::cellEnd, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount, arrays::neighborListSwap> arrays_list;
+extern std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::auxHashTable, arrays::previousPosition, arrays::auxCellInformation, arrays::auxCellSurface, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::hashMap, arrays::particleparticleIndex, arrays::cellBegin, arrays::cellEnd, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount, arrays::neighborListSwap> allocations_list;
+extern std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::boundaryLUT, arrays::boundaryPressureLUT, arrays::xbarLUT, arrays::ctrLUT, arrays::boundaryPlanes, arrays::volumeBoundaryVolumes, arrays::volumeBoundaryDimensions, arrays::volumeBoundaryMin, arrays::volumeBoundaryMax, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::inletPositions, arrays::inletCounter, arrays::volumeOutletVolumes, arrays::volumeOutletDimensions, arrays::volumeOutletMin, arrays::volumeOutletMax, arrays::volumeOutletRate, arrays::volumeOutletRateAccumulator, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::auxHashTable, arrays::previousPosition, arrays::auxCellInformation, arrays::auxCellSurface, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::hashMap, arrays::particleparticleIndex, arrays::cellBegin, arrays::cellEnd, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount, arrays::neighborListSwap> arrays_list;
 extern std::tuple<arrays::adaptiveSplitIndicator, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::angularVelocity, arrays::distanceBuffer, arrays::position, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::neighborListLength> sorting_list;
-extern std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::particleparticleIndex, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount> swapping_list;
+extern std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::auxHashTable, arrays::previousPosition, arrays::auxCellInformation, arrays::auxCellSurface, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::particleparticleIndex, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount> swapping_list;
 template<typename T, bool b>
 struct arrays_add_const;
 

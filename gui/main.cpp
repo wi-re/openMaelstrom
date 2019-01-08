@@ -11,7 +11,7 @@
 #endif
 
 #include "qt/mainwindow.h"
-#include <simulation/particleSystem.h>
+#include <simulation/particleSystem.h> 
 #include <sstream>
 #include <thread>
 #include <utility/helpers/arguments.h>

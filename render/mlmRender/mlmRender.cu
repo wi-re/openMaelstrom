@@ -10,9 +10,12 @@
 #include <utility/math.h>
 #include <vector_functions.h>
 #include <vector_types.h>
+#define DEBUG_AABB
 
 __device__ __constant__ SceneInformation cScene;
 __device__ __constant__ FluidSystem fluidSystem;
+__device__ __constant__ FluidMemory fluidMemory;
+
 surface<void, cudaSurfaceType2D> surfaceWriteOut; 
 
 struct Ray {
@@ -49,7 +52,7 @@ __device__ Sphere spheres[] = {
     {100000, {0.0f, 0, -100000.1}, {0, 0, 0}, {0.3f, 0.3f, 0.3f}, DIFF}
 };
 
-auto sgn(float x) {
+__device__ __host__ auto sgn(float x) {
 	return x > 0.f ? 1 : (x < 0.f ? -1 : 0);
 }
 
@@ -69,11 +72,10 @@ struct AABBHit {
 __device__ AABBHit rayIntersectFluidAABB(Ray worldRay) {
 	float tmin, tmax, tymin, tymax, tzmin, tzmax;
 
-	float invdirx = worldRay.dir.x;
-	float invdiry = worldRay.dir.y;
-	float invdirz = worldRay.dir.z;
-
-
+	float invdirx = 1.f / worldRay.dir.x;
+	float invdiry = 1.f / worldRay.dir.y;
+	float invdirz = 1.f / worldRay.dir.z;
+	
 	tmin = (fluidSystem.bounds[invdirx < 0.f].x - worldRay.orig.x) * invdirx;
 	tmax = (fluidSystem.bounds[1 - (invdirx < 0.f)].x - worldRay.orig.x) * invdirx;
 	tymin = (fluidSystem.bounds[invdiry < 0.f].y - worldRay.orig.y) * invdiry;
@@ -81,7 +83,7 @@ __device__ AABBHit rayIntersectFluidAABB(Ray worldRay) {
 
 	if ((tmin > tymax) || (tymin > tmax))
 		return AABBHit{ false };
-	if (tymin > tmin)
+	if (tymin > tmin) 
 		tmin = tymin;
 	if (tymax < tmax)
 		tmax = tymax;
@@ -91,23 +93,137 @@ __device__ AABBHit rayIntersectFluidAABB(Ray worldRay) {
 
 	if ((tmin > tzmax) || (tzmin > tmax))
 		return AABBHit{ false };
-	if (tzmin > tmin)
+	if (tzmin > tmin) 
 		tmin = tzmin;
 	if (tzmax < tmax)
 		tmax = tzmax;
-
-	return AABBHit{ true, tmin, tmax };
+	return AABBHit{ (tmin < 0.f && tmax > 0.f ) || (tmin > 0.f && tmax > 0.f), tmin, tmax };
 }
 
+__device__ auto lookup_cell(int3 idx) {
+	//auto idx = position_to_idx3D_i(voxelPosition, fluidMemory.min_coord, math::unit_get<1>(fluidMemory.cell_size));
+	uint3 cell = uint3{ (uint32_t)idx.x, (uint32_t)idx.y, (uint32_t)idx.z };
+	if (cell.x == UINT32_MAX || cell.y == UINT32_MAX || cell.z == UINT32_MAX)
+		return -1;
+	auto morton = idx3D_to_morton(cell);
+	auto s = fluidMemory.hashMap[idx3D_to_hash(cell, fluidMemory.hash_entries)];
+	auto ii = s.beginning;
+	if (s.beginning == -1)
+		return -1;
+	for (; ii < s.beginning + s.length;) {
+		auto cs = fluidMemory.cellSpan[ii];
+		++ii;
+		auto jj = cs.beginning;
+		if(position_to_morton(fluidMemory.position[jj], fluidMemory, 1.f) == morton)
+			return ii;
+	}
+	return -1;
+}
+
+template<typename Func> __device__ void iterateVoxels(Func&& fn, float3 start, float3 dir){
+	auto intBound = [](auto s, auto ds) { 
+		auto sIsInteger = (roundf(s) == s);
+		if (ds < 0 && sIsInteger)
+			return 0.f;
+		return (ds > 0 ? math::ceilf(s) - s : s - math::floorf(s)) / math::abs(ds);
+	};
+	auto cs = fluidMemory.cell_size.x;
+	auto half_cell = fluidMemory.cell_size * 0.5f;
+	constexpr auto scale = 1.f;
+	constexpr auto range = 512.f;
+	int3 voxelPosition = position_to_idx3D_i(start, fluidMemory.min_coord, math::unit_get<1>(fluidMemory.cell_size));
+	int3 step{ (int32_t)sgn(dir.x), (int32_t)sgn(dir.y), (int32_t)sgn(dir.z) };
+	
+	auto offset = (start - fluidMemory.min_coord) / fluidMemory.cell_size;
+
+	float3 tMax{ intBound(offset.x, dir.x), intBound(offset.y, dir.y), intBound(offset.z, dir.z) };
+	float3 tDelta{ ((float)step.x) / dir.x * cs, ((float)step.y) / dir.y * cs, ((float)step.z) / dir.z * cs};
+		
+	if (dir.x == 0.f && dir.y == 0.f && dir.z == 0.f)
+		return;
+	auto radius = 10.f / math::length(dir);
+	int3 face = step;
+	int32_t counter = 0;
+	while (true) {
+		float3 vPos = fluidMemory.min_coord + math::castTo<float3>(voxelPosition) / scale * fluidMemory.cell_size.x;
+		auto morton = position_to_morton(vPos, fluidMemory, scale);
+		auto hash = position_to_hash(vPos, fluidMemory, scale);
+		auto cell_idx = lookup_cell(voxelPosition);
+		if (cell_idx != -1) { // hit occupied cell
+			auto t = math::max_elem(tMax);
+			auto pos = start + t * dir;
+			auto res = fn(voxelPosition, pos, cell_idx, face);
+			if (res == true)
+				return;
+		}
+		if (tMax.x < tMax.y) {
+			if (tMax.x < tMax.z) {
+				if (tMax.x > range) return;
+				voxelPosition.x += step.x;
+				tMax.x += tDelta.x;
+				face = int3{ -step.x,0,0 };
+			}
+			else {
+				if (tMax.z > range) return;
+				voxelPosition.z += step.z;
+				tMax.z += tDelta.z;
+				face = int3{ 0, 0, -step.z};
+			}
+		}
+		else {
+			if (tMax.y < tMax.z) {
+				if (tMax.y > range) return;
+				voxelPosition.y += step.y;
+				tMax.y += tDelta.y;
+				face = int3{ 0,-step.y,0 };
+			}
+			else {
+				if (tMax.z > range) return;
+				voxelPosition.z += step.z;
+				tMax.z += tDelta.z;
+				face = int3{ 0, 0, -step.z };
+			}
+		}
+	}
+}
+
+
 __device__  rayHit rayIntersectFluid(Ray worldRay) {
+#ifdef DEBUG_AABB
+	auto aabb_center = (fluidSystem.bounds[1] - fluidSystem.bounds[0]) / 2.f;
+	auto aabb_normal = [](auto v) {
+		constexpr auto epsilon = 1e-5f;
+		auto c = (fluidSystem.bounds[0] + fluidSystem.bounds[1]) * 0.5f;
+		auto prel = v - c;
+		auto d = math::abs((fluidSystem.bounds[0] - fluidSystem.bounds[1]) * 0.5f);
+		auto n = math::castTo<int3>(prel / d * (1.f + epsilon));
+		return float3{ (float) n.x, (float) n.y, (float) n.z };
+	};
+#endif
 	auto aabb = rayIntersectFluidAABB(worldRay);
 	if (aabb.hit == true) {
-		float t = aabb.tmax < 0.f ? aabb.tmin : aabb.tmax;
-		float3 n;
-		if (abs(worldRay.dir.x) >= abs(worldRay.dir.y) && abs(worldRay.dir.x) >= abs(worldRay.dir.z)) n = float3{ 1.f,0.f,0.f };
-		if (abs(worldRay.dir.y) >= abs(worldRay.dir.x) && abs(worldRay.dir.y) >= abs(worldRay.dir.z)) n = float3{ 0.f,1.f,0.f };
-		if (abs(worldRay.dir.z) >= abs(worldRay.dir.x) && abs(worldRay.dir.z) >= abs(worldRay.dir.y)) n = float3{ 0.f,0.f,1.f };
-		return rayHit{ worldRay.orig + t * worldRay.dir, t, n, true };
+#ifdef DEBUG_AABB
+		float3 aabb_min = worldRay.orig + aabb.tmin * worldRay.dir;
+		float3 aabb_max = worldRay.orig + aabb.tmax * worldRay.dir;
+		//// DEBUG render for AABB
+		//if (aabb.tmin >= 0.f)
+		//	return rayHit{ aabb_min, aabb.tmin, math::abs(aabb_normal(aabb_min)), true };
+		//else
+		//	return rayHit{ aabb_max, aabb.tmax, math::abs(aabb_normal(aabb_max)), true };
+#endif
+		bool hit = false;
+		float3 hitPosition;
+		float3 normal;
+
+		iterateVoxels([&](int3 voxel, float3 vPos, int32_t voxelIdx, int3 face) {
+			hit = true;
+			hitPosition = vPos;
+			normal = math::castTo<float3>(face);
+			
+			return true;
+		}, worldRay.orig + math::max(aabb.tmin - 2.f, 0.f) * worldRay.dir, worldRay.dir);
+		if(hit == true) 
+			return rayHit{hitPosition, math::distance3(worldRay.orig, hitPosition), -normal, true};
 	}
 	return rayHit{ float3{FLT_MAX, FLT_MAX, FLT_MAX}, FLT_MAX, float3{1.f,0.f,0.f}, false };
 }
@@ -133,14 +249,14 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
     float3 rayorig = float3{originInWorldSpace.x, originInWorldSpace.y, originInWorldSpace.z};
     float3 raydir = float3{rayInWorldSpace.x, rayInWorldSpace.y, rayInWorldSpace.z};
 
-    float numspheres = sizeof(spheres) / sizeof(Sphere);
-    for (int32_t i = int32_t(numspheres); i--;) {
-      if ((d = spheres[i].intersect(Ray(rayorig, raydir))) && d < scene_t) {
-        scene_t = d;
-        sphere_id = i;
-        geomtype = 1;
-      }
-    }
+    //float numspheres = sizeof(spheres) / sizeof(Sphere);
+    //for (int32_t i = int32_t(numspheres); i--;) {
+    //  if ((d = spheres[i].intersect(Ray(rayorig, raydir))) && d < scene_t) {
+    //    scene_t = d;
+    //    sphere_id = i;
+    //    geomtype = 1;
+    //  }
+    //}
 
 	auto fluidHit = rayIntersectFluid(Ray{ rayorig , raydir });
 	if (fluidHit.status && fluidHit.depth < scene_t) {
@@ -166,9 +282,10 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
 		n = fluidHit.normal;;
 		nl = math::dot(n, rayInWorldSpace) < 0 ? n : n * -1;
 		f = float3{ 0.05098f, 0.23137f, 0.494177f };
+		f = math::abs(fluidHit.normal);
+		return f;
 		emit = float3{ 0.f, 0.f, 0.f };
 		accucolor += (mask * emit);
-		return n;
 	}
 
     float phi = 2 * CUDART_PI_F * curand_uniform(randstate);
@@ -257,7 +374,7 @@ __global__ void CoreLoopPathTracingKernel(float3 *accumbuffer, unsigned int fram
   surf2Dwrite(out, surfaceWriteOut, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
-void cudaMLMRender(SceneInformation scene, cudaGraphicsResource_t resource, FluidSystem fsys, float3 *acc, unsigned framenumber,
+void cudaMLMRender(SceneInformation scene, cudaGraphicsResource_t resource, FluidMemory fmem, FluidSystem fsys, float3 *acc, unsigned framenumber,
                    unsigned hashedframes) {
   static bool once = true;
 
@@ -271,6 +388,7 @@ void cudaMLMRender(SceneInformation scene, cudaGraphicsResource_t resource, Flui
 
   cudaMemcpyToSymbol(cScene, &scene, sizeof(SceneInformation));
   cudaMemcpyToSymbol(fluidSystem, &fsys, sizeof(FluidSystem));
+  cudaMemcpyToSymbol(fluidMemory, &fmem, sizeof(FluidMemory));
 
   dim3 texturedim((uint32_t)scene.width, (uint32_t)scene.height, 1);
   dim3 blockdim(16, 16, 1);

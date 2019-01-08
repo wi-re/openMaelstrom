@@ -274,6 +274,8 @@ void IO::config::defaultAllocate() {
                              << " size: " << IO::config::bytesToString(decltype(x)::alloc_size)
                              << std::endl;
   });
+  if (get<parameters::rayTracing>() == true)
+	  arrays::previousPosition::defaultAllocate();
 }
 
 void IO::config::initSnapshot() {

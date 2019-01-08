@@ -77,5 +77,21 @@ struct compactSpan {
 	uint32_t len : COMPACT_LEN;
 };
 
+struct cellInformation {
+	cellInformation() : occupied (0), inside(0), xPos(0), xNeg(0), yPos(0), yNeg(0), zPos(0), zNeg(0) {}
+	uint8_t occupied : 1;
+	uint8_t inside : 1;
+
+	uint8_t xPos : 1;
+	uint8_t xNeg : 1;
+	uint8_t yPos : 1;
+	uint8_t yNeg : 1;
+	uint8_t zPos : 1;
+	uint8_t zNeg : 1;
+};
+
+struct cellSurface {
+	float dummy;
+};
 
 #define cudaAllocateMemory cudaMallocManaged

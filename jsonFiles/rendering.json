@@ -1,5 +1,5 @@
 {
-  "functions":{
+  "functions": {
     "visualization": {
       "description": "Module used to map simulation data (per particlle values) to a range of 0 to 1 for rendering.",
       "folder": "visualization",
@@ -10,12 +10,77 @@
       "parameters": [],
       "input": [ "position" ],
       "output": [ "renderIntensity" ]
+    },
+    "auxilliaryMLM": {
+      "description": "Module used to implement a simple resorting algorithm that uses a cell entry for every actual cell in the domain. Does not support infinite domains.",
+      "folder": "render",
+      "name": "auxilliaryMLM",
+      "cell_info": true,
+      "neighbor_info": true,
+      "resort": false,
+      "units": true,
+      "functions": [ "generateAuxilliaryGrid" ],
+      "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size", "auxScale" ],
+      "depends_any": [ { "rayTracing": true } ],
+      "input": [ "position", "volume" ],
+      "output": [ "classification", "auxHashTable", "auxCellInformation", "auxCellSurface" ]
     }
   },
   "arrays":{
+    "renderArrays": {
+      "auxHashTable": {
+        "description": ".",
+        "unit": "none",
+        "type": "hash_span",
+        "depends_any": [ { "rayTracing": true } ],
+        "kind": "particleData"
+      },
+      "previousPosition": {
+        "description": ".",
+        "unit": "none",
+        "type": "float4",
+        "depends_any": [ { "rayTracing": true } ],
+        "kind": "particleData"
+      },
+      "auxCellInformation": {
+        "description": ".",
+        "unit": "none",
+        "type": "cellInformation",
+        "depends_any": [ { "rayTracing": true } ],
+        "kind": "particleData"
+      },
+      "auxCellSurface": {
+        "description": ".",
+        "unit": "none",
+        "type": "cellSurface",
+        "depends_any": [ { "rayTracing": true } ],
+        "kind": "particleData"
+      }
+    }
   },
-  "uniforms":{
+  "uniforms": {
+    "modules": {
+      "rayTracing": {
+        "identifier": "rayTracing",
+        "name": "Used to enable/disable rayTracing using auxMLM.",
+        "type": "bool",
+        "default": true
+      }
+    },
     "render_settings": {
+      "auxScale": {
+        "identifier": "auxScale",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "1.f",
+        "const": false,
+        "range": {
+          "min": "0.25f",
+          "max": "16.f",
+          "step": "0.25f"
+        }
+      },
       "render_clamp": {
         "identifier": "render_clamp",
         "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
@@ -139,6 +204,6 @@
         "default": "inferno",
         "const": false
       }
-    }    
+    }
   }
 }    

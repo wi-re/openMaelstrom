@@ -2233,6 +2233,130 @@ bool arrays::neighborListLength::valid(){
 	bool condition = true;
 	return condition;
 }
+hash_span* arrays::auxHashTable::ptr = nullptr;
+size_t arrays::auxHashTable::alloc_size = 0;
+
+
+void arrays::auxHashTable::defaultAllocate(){
+	auto elems = (get<parameters::max_numptcls>() + 1);
+	alloc_size = 1 * elems * sizeof(hash_span);
+	cudaAllocateMemory(&ptr, alloc_size);
+}
+void arrays::auxHashTable::leanAllocate(){
+	auto elems = (get<parameters::max_numptcls>() + 1);
+	alloc_size = 1 * elems * sizeof(hash_span);
+	
+}
+
+void arrays::auxHashTable::allocate(size_t size){
+	alloc_size = size;
+	cudaAllocateMemory(&ptr, alloc_size);
+}
+void arrays::auxHashTable::free(){
+	alloc_size = 0;
+	cudaFree(ptr);
+	ptr = nullptr;
+}
+arrays::auxHashTable::operator type*(){ return ptr;}
+hash_span& arrays::auxHashTable::operator[](size_t idx){ return ptr[idx];}
+bool arrays::auxHashTable::valid(){
+	bool condition = false;
+	condition = condition || get<parameters::rayTracing>() == true;
+	return condition;
+}
+float4* arrays::previousPosition::ptr = nullptr;
+size_t arrays::previousPosition::alloc_size = 0;
+
+
+void arrays::previousPosition::defaultAllocate(){
+	auto elems = (get<parameters::max_numptcls>() + 1);
+	alloc_size = 1 * elems * sizeof(float4);
+	cudaAllocateMemory(&ptr, alloc_size);
+}
+void arrays::previousPosition::leanAllocate(){
+	auto elems = (get<parameters::max_numptcls>() + 1);
+	alloc_size = 1 * elems * sizeof(float4);
+	
+}
+
+void arrays::previousPosition::allocate(size_t size){
+	alloc_size = size;
+	cudaAllocateMemory(&ptr, alloc_size);
+}
+void arrays::previousPosition::free(){
+	alloc_size = 0;
+	cudaFree(ptr);
+	ptr = nullptr;
+}
+arrays::previousPosition::operator type*(){ return ptr;}
+float4& arrays::previousPosition::operator[](size_t idx){ return ptr[idx];}
+bool arrays::previousPosition::valid(){
+	bool condition = false;
+	condition = condition || get<parameters::rayTracing>() == true;
+	return condition;
+}
+cellInformation* arrays::auxCellInformation::ptr = nullptr;
+size_t arrays::auxCellInformation::alloc_size = 0;
+
+
+void arrays::auxCellInformation::defaultAllocate(){
+	auto elems = (get<parameters::max_numptcls>() + 1);
+	alloc_size = 1 * elems * sizeof(cellInformation);
+	cudaAllocateMemory(&ptr, alloc_size);
+}
+void arrays::auxCellInformation::leanAllocate(){
+	auto elems = (get<parameters::max_numptcls>() + 1);
+	alloc_size = 1 * elems * sizeof(cellInformation);
+	
+}
+
+void arrays::auxCellInformation::allocate(size_t size){
+	alloc_size = size;
+	cudaAllocateMemory(&ptr, alloc_size);
+}
+void arrays::auxCellInformation::free(){
+	alloc_size = 0;
+	cudaFree(ptr);
+	ptr = nullptr;
+}
+arrays::auxCellInformation::operator type*(){ return ptr;}
+cellInformation& arrays::auxCellInformation::operator[](size_t idx){ return ptr[idx];}
+bool arrays::auxCellInformation::valid(){
+	bool condition = false;
+	condition = condition || get<parameters::rayTracing>() == true;
+	return condition;
+}
+cellSurface* arrays::auxCellSurface::ptr = nullptr;
+size_t arrays::auxCellSurface::alloc_size = 0;
+
+
+void arrays::auxCellSurface::defaultAllocate(){
+	auto elems = (get<parameters::max_numptcls>() + 1);
+	alloc_size = 1 * elems * sizeof(cellSurface);
+	cudaAllocateMemory(&ptr, alloc_size);
+}
+void arrays::auxCellSurface::leanAllocate(){
+	auto elems = (get<parameters::max_numptcls>() + 1);
+	alloc_size = 1 * elems * sizeof(cellSurface);
+	
+}
+
+void arrays::auxCellSurface::allocate(size_t size){
+	alloc_size = size;
+	cudaAllocateMemory(&ptr, alloc_size);
+}
+void arrays::auxCellSurface::free(){
+	alloc_size = 0;
+	cudaFree(ptr);
+	ptr = nullptr;
+}
+arrays::auxCellSurface::operator type*(){ return ptr;}
+cellSurface& arrays::auxCellSurface::operator[](size_t idx){ return ptr[idx];}
+bool arrays::auxCellSurface::valid(){
+	bool condition = false;
+	condition = condition || get<parameters::rayTracing>() == true;
+	return condition;
+}
 int32_t* arrays::classification::ptr = nullptr;
 size_t arrays::classification::alloc_size = 0;
 
@@ -2952,7 +3076,7 @@ bool arrays::neighborListSwap::valid(){
 	return condition;
 }
 
-std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::hashMap, arrays::particleparticleIndex, arrays::cellBegin, arrays::cellEnd, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount, arrays::neighborListSwap> allocations_list;
-std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::boundaryLUT, arrays::boundaryPressureLUT, arrays::xbarLUT, arrays::ctrLUT, arrays::boundaryPlanes, arrays::volumeBoundaryVolumes, arrays::volumeBoundaryDimensions, arrays::volumeBoundaryMin, arrays::volumeBoundaryMax, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::inletPositions, arrays::inletCounter, arrays::volumeOutletVolumes, arrays::volumeOutletDimensions, arrays::volumeOutletMin, arrays::volumeOutletMax, arrays::volumeOutletRate, arrays::volumeOutletRateAccumulator, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::hashMap, arrays::particleparticleIndex, arrays::cellBegin, arrays::cellEnd, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount, arrays::neighborListSwap> arrays_list;
+std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::auxHashTable, arrays::previousPosition, arrays::auxCellInformation, arrays::auxCellSurface, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::hashMap, arrays::particleparticleIndex, arrays::cellBegin, arrays::cellEnd, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount, arrays::neighborListSwap> allocations_list;
+std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::boundaryLUT, arrays::boundaryPressureLUT, arrays::xbarLUT, arrays::ctrLUT, arrays::boundaryPlanes, arrays::volumeBoundaryVolumes, arrays::volumeBoundaryDimensions, arrays::volumeBoundaryMin, arrays::volumeBoundaryMax, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::inletPositions, arrays::inletCounter, arrays::volumeOutletVolumes, arrays::volumeOutletDimensions, arrays::volumeOutletMin, arrays::volumeOutletMax, arrays::volumeOutletRate, arrays::volumeOutletRateAccumulator, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::auxHashTable, arrays::previousPosition, arrays::auxCellInformation, arrays::auxCellSurface, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::hashMap, arrays::particleparticleIndex, arrays::cellBegin, arrays::cellEnd, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount, arrays::neighborListSwap> arrays_list;
 std::tuple<arrays::adaptiveSplitIndicator, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::angularVelocity, arrays::distanceBuffer, arrays::position, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::neighborListLength> sorting_list;
-std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::particleparticleIndex, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount> swapping_list;
+std::tuple<arrays::adaptiveMergeable, arrays::adaptiveMergeCounter, arrays::adaptiveNumPtcls, arrays::adaptiveClassification, arrays::adaptiveSplitIndicator, arrays::adaptiveSplitIndicatorCompacted, arrays::adaptiveParentIndex, arrays::adaptiveParentVolume, arrays::adaptiveParentPosition, arrays::maxVelocity, arrays::cflValue, arrays::particleNormal, arrays::angularVelocity, arrays::decisionBuffer, arrays::surface_idxBuffer, arrays::markerBuffer, arrays::distanceBuffer, arrays::changeBuffer, arrays::position, arrays::acceleration, arrays::velocity, arrays::renderIntensity, arrays::volume, arrays::lifetime, arrays::pressure, arrays::density, arrays::particleIndex, arrays::particleIndexCompact, arrays::resortArray4, arrays::resortArray, arrays::dfsphDpDt, arrays::dfsphAlpha, arrays::dfsphRhoStar, arrays::dfsphKappa, arrays::dfsphKappaDivergence, arrays::iisphSum, arrays::iisphDii, arrays::iisphAiiOld, arrays::omega, arrays::alpha, arrays::gamma, arrays::sigma, arrays::iisphDensityAdvection, arrays::iisphDensityIteration, arrays::kernelBuffer, arrays::velocityAdvection, arrays::iisphSource, arrays::iisphOmega, arrays::iisphVolume, arrays::iisphAii, arrays::iisphAcceleration, arrays::iisphVolumeError, arrays::compactCellList, arrays::compactCellScale, arrays::spanNeighborList, arrays::neighborList, arrays::neighborListLength, arrays::auxHashTable, arrays::previousPosition, arrays::auxCellInformation, arrays::auxCellSurface, arrays::classification, arrays::resortIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellSpan, arrays::MLMResolution, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::particleparticleIndex, arrays::support, arrays::supportEstimate, arrays::neighborCount, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::closestNeighbor, arrays::closestNeighbor_f, arrays::neighborOverhead, arrays::neighborOverheadCount> swapping_list;

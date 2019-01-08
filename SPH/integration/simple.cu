@@ -1,6 +1,7 @@
 
 #include <SPH/integration/simple.cuh>
 #include <utility/include_all.h>
+#include "dummy.h" 
 // This function does a lot of things.
 /*
         - It corrects the particle position against all boundary planes
@@ -142,6 +143,9 @@ basicFunction(updateVelocity, velocity_update, "Integrate: Velocity");
 // This function updates the positions of all particles and additionally updates the timestep
 // according to a CFL condition.
 void SPH::Integration::update_positions(Memory mem) {
+	//std::cout << arrays::previousPosition::ptr << " - " << arrays::position::ptr << std::endl;
+	if (get<parameters::rayTracing>() == true)
+		cuda::memcpy(arrays::previousPosition::ptr, arrays::position::ptr, sizeof(float4) * mem.num_ptcls, cudaMemcpyDeviceToDevice);
   launch<updatePosition>(mem.num_ptcls, mem);
   launch<particleShifting>(mem.num_ptcls, mem);
   info<arrays::position>().swap();

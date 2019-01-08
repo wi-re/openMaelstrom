@@ -39,7 +39,6 @@ void MLMRender::update() {}
 MLMRender::MLMRender(OGLWidget *parent) {
   auto h_scene = hostScene();
   cudaMalloc(&accumulatebuffer, h_scene.width * h_scene.height * sizeof(float3));
-
   initializeOpenGLFunctions();
   quad_programID = new QOpenGLShaderProgram(parent);
   quad_programID->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
@@ -81,6 +80,10 @@ MLMRender::MLMRender(OGLWidget *parent) {
   prepCUDAscene();
   update();
 
+  cuda_particleSystem::instance().retainArray("auxHashTable");
+  cuda_particleSystem::instance().retainArray("auxCellInformation");
+  cuda_particleSystem::instance().retainArray("auxCellSurface");
+
   cuda_particleSystem::instance().retainArray("cellSpan");
   cuda_particleSystem::instance().retainArray("hashMap");
   cuda_particleSystem::instance().retainArray("MLMResolution");
@@ -98,15 +101,41 @@ void MLMRender::render() {
   static std::random_device r;
   static std::default_random_engine e1(r());
   static std::uniform_int_distribution<int32_t> uniform_dist(INT_MIN, INT_MAX);
+
+  static int32_t frame = -1;
+
   static int framenumber = 0;
   auto h_scene = hostScene();
-  if (h_scene.dirty) {
+  if (h_scene.dirty || frame != get<parameters::frame>()) {
+	  frame = get<parameters::frame>();
     cudaMemset(accumulatebuffer, 1, h_scene.width * h_scene.height * sizeof(float3));
     framenumber = 0;
   }
   framenumber++;
   
-  cudaMLMRender(h_scene, renderedResourceOut, fsys, accumulatebuffer, framenumber, uniform_dist(e1));
+  FluidMemory fmem;
+  fmem.grid_size = parameters::grid_size{};
+  fmem.min_domain = parameters::min_domain{};
+  fmem.max_domain = parameters::max_domain{};
+  fmem.cell_size = parameters::cell_size{};
+  fmem.min_coord = parameters::min_coord{};
+
+  fmem.hash_entries = parameters::hash_entries{};
+  fmem.mlm_schemes = parameters::mlm_schemes{};
+
+  fmem.num_ptcls = parameters::num_ptcls{};
+  fmem.max_numptcls = parameters::max_numptcls{};
+  fmem.timestep = parameters::timestep{};
+  fmem.radius = parameters::radius{};
+  fmem.rest_density = parameters::rest_density{};
+
+  fmem.cellSpan = arrays::cellSpan::ptr;
+  fmem.hashMap = arrays::hashMap::ptr;
+  fmem.MLMResolution = arrays::MLMResolution::ptr;
+  fmem.position = arrays::previousPosition::ptr;
+  fmem.volume = arrays::volume::ptr;
+
+  cudaMLMRender(h_scene, renderedResourceOut, fmem, fsys, accumulatebuffer, framenumber, uniform_dist(e1));
 
   glBindVertexArray(defer_VAO);
   quad_programID->bind();
