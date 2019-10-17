@@ -53,11 +53,15 @@ MMB: Slide camera on camera plane
 **/
 /** This widget is used to display the simulation and some overlay text. **/
 class OGLWidget : public QGLWidget, protected QOpenGLFunctions_3_3_Compatibility {
-	bool rayTracing = false;
-	Renderer* rayTracer = nullptr;
-	bool mlmTracing = false;
-	Renderer* mlmTracer = nullptr;
-
+	//bool rayTracing = false;
+	//Renderer* rayTracer = nullptr;
+	RTXRender* mlmTracer = nullptr;
+	RTXRender* vrtxTracer = nullptr;
+	bool prettyRender = false;
+	bool writeFlag = false;
+	Renderer* colorMapRender = nullptr;
+	Renderer* indexRender = nullptr;
+	std::vector<RTXRender *> m_rayTracingFunctions;
 	std::vector<Renderer *> m_renderFunctions;
   std::vector<Renderer *> m_volumeRenderFunctions;
 	bool m_showText = true;
@@ -68,7 +72,10 @@ class OGLWidget : public QGLWidget, protected QOpenGLFunctions_3_3_Compatibility
 #ifdef WIN32
 	FILE *m_ffmpegPipe = nullptr;
 #endif
-	float m_frameTimer = 0.f;
+	float m_frameTimer = 0.f; 
+	bool pickerActive = false;
+	int32_t pickedParticle = -1;
+	int32_t pickerX = 0, pickerY = 0;
 
 	// These 3 members contain a map of uniforms/vbos that need to be set.
 	std::map<array_enum, cuda_buffer_base *> m_arrayMappings;

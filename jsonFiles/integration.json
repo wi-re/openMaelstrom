@@ -7,13 +7,14 @@
       "neighbor_info": true,
       "virtual_info": true,
       "boundaryInfo": true,
+      "cell_info": true,
       "units": true,
       "functions": [ "update_positions", "update_velocities" ],
       "parameters": [ "max_velocity", "min_domain", "max_domain", "boundaryDampening", "external_force", "ptcl_support" ],
-      "input": [ "acceleration", "volume", "density"],
+      "input": [ "acceleration", "volume", "density", "particle_type" ],
       "swap": [ "position", "velocity" ],
-      "temporary": [ "maxVelocity","cflValue" ],
-      "output": [ "lifetime" ]
+      "temporary": [ "maxVelocity", "cflValue" ],
+      "output": [ "lifetime", "rigidLinearVelocities" ]
     }
   },
   "arrays":{

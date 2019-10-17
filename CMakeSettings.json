@@ -1,0 +1,10 @@
+﻿{
+  "configurations": [
+    {
+      "name": "openGPUSPH",
+      "cacheRoot": "C:\\dev\\build\\maelstromClang",
+      "inheritEnvironments": [],
+      "variables": []
+    }
+  ]
+}

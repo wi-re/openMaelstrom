@@ -1,0 +1,159 @@
+{
+  "modules": {
+    "pressure": "DFSPH",
+    "adaptive": true,
+    "rayTracing": true,
+    "surfaceDetection": true,
+    "error_checking": true,
+    "resorting": "compactMLM",
+    "support": "constraineds",
+    "neighborhood": "constrained",
+    "drag": "Gissler17",
+    "vorticity": "Bender17",
+    "anisotropicSurface": false
+  },
+  "surfaceDistance": {
+    "distanceFieldDistances": "0 0 1.5",
+    "level_limit": "-15.f"
+  },
+  "adaptive": {
+    "resolution": 128,
+    "delay": 1.5,
+    "blendSteps": 10,
+    "adaptivityGamma": 0.1
+  },
+  "color_map": {
+    "auto": 0,
+    "buffer": "velocity",
+    "min": 0,
+    "max": 30,
+    "map": "viridis",
+    "map_flipped": 0
+  },
+  "particle_volumes": {
+    "volume1": {
+      "file": "Volumes/Sphere.obj",
+      "concentration": 0.0,
+      "timeToEmit": 0.0,
+      "kind": "vdb"
+    },
+    "volume2": {
+      "file": "Volumes/Fluid.vdb",
+      "concentration": 0.0,
+      "timeToEmit": 0.0,
+      "kind": "vdb"
+    }
+  },
+  "rigid_volumess": {
+    "volume1": {
+      "file": "Volumes/Sphere.obj",
+      "concentration": 0.0,
+      "timeToEmit": 0.0,
+      "kind": "obj",
+      "density": 200.0
+    },
+    "gamma": 0.9,
+    "beta": 0.15
+  },
+  "particle_settings": {
+    "radiusV1": 0.6428834557533264,
+    "radiusS": 0.2714417278766632,
+    "radius": 0.5,
+    "tension_akinci": 0.15
+  },
+  "rtxScene": {
+    "box1": {
+      "maxPosition": "FLT_MAX FLT_MAX -1",
+      "minPosition": "-FLT_MAX -FLT_MAX -4",
+      "emission": "0 0 0",
+      "color": "0.1 0.1 0.1",
+      "material": 0
+    },
+    "boxs3": {
+      "maxPosition": "-151 FLT_MAX FLT_MAX",
+      "minPosition": "-502 -FLT_MAX -FLT_MAX",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 0
+    },
+    "box2": {
+      "maxPosition": "192 192 192",
+      "minPosition": "-192 -192 -192",
+      "emission": "1 1 1",
+      "color": "1 1 1",
+      "material": 0
+    },
+    "sphere1": {
+      "position": "0 0 -100060",
+      "radius": "10000",
+      "emission": "0.55 0.55 0.55",
+      "color": "0.075 0.075 0.075",
+      "material": 0
+    },
+    "spheres2": {
+      "position": "-96 0 66",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 3
+    },
+    "spheres3": {
+      "position": "-96 72 8",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "0.5 0 0",
+      "material": 0
+    },
+    "spheres4": {
+      "position": "-96 64 124",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 4
+    }
+  },
+  "render_settings": {
+    "apertureRadius": "0.f",
+    "focalDistance": "65.f",
+    "vrtxRenderFluid": "1",
+    "vrtxRenderSurface": "0",
+    "vrtxRenderNormals": "0",
+    "vrtxDisplayStats": "0",
+    "vrtxMaterial": "0",
+    "vrtxIOR": "1.15f",
+    "renderSteps": 25,
+    "camera_fps": 60,
+    "camera_position5": "-77.2553 -86.0991 37.3887",
+    "camera_angle5": "164.5 0 56",
+    "camera_position4": "-15.8272 9.87833 20.1286",
+    "camera_angle4": "179 0 127",
+    "camera_position2": "77.253 -40.5281 -71.0931",
+    "camera_angle2": "-60.5 0 126",
+    "camera_position6": "-93.7772 59.1285 57.4027",
+    "camera_angle6": "158.5 0 127.5",
+    "camera_position7": "160.99 252.942 148.223",
+    "camera_angle7": "169 0 -127",
+    "camera_position8": "143.274 190.668 80.323",
+    "camera_angle8": "180 0 228.5",
+    "camera_positiond": "34.2585 9.79586 29.0131",
+    "camera_angled": "167.5 0 -112",
+    "camera_position": "42.7232 0.00242993 69.289",
+    "camera_angle": "135 0 -90",
+    "camera_positions": "26.4828 -11.9925 49.9802",
+    "camera_angles": "180 0 -90",
+    "render_clamp": "0 0 0"
+  },
+  "simulation_settings": {
+    "densitySteps": 5,
+    "boundaryObject": "Objects/domain.obj",
+    "external_force": "0 0 -9.8",
+    "domainWall": "xyz-",
+    "domainWalls": "x+-y+-z+-",
+    "numptcls": 7090000,
+    "auto_boundary": "true",
+    "boundaryDampening": 0.999,
+    "timestep_min": 0.001,
+    "timestep_max": 0.008,
+    "neighborlimit": 120
+  }
+}

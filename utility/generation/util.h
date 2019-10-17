@@ -1,5 +1,6 @@
 #pragma once
 #include <utility/generation.h>
+#include <utility/mathv2/matrix.h>
 
 namespace generation {
 // ----------------------------------------------------------------
@@ -27,5 +28,5 @@ std::tuple<float, float, float> getPacking(float r);
 
 // Takes the path to an *.obj or *.vdb file and returns the equivalent SDF parsed into a 256^3 CUDA 3D texture
 // The fileName argument is parsed through resolveFiles with the configuration directory added.
-std::tuple<cudaTextureObject_t, float4, float4, int4> cudaVolume(std::string fileName);
+std::tuple<cudaTextureObject_t, float4, float4, int4, float4, Matrix4x4> cudaVolume(std::string fileName);
 } // namespace generation

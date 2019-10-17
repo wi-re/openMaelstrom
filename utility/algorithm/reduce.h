@@ -29,7 +29,7 @@ namespace algorithm {
   template <typename T> T name(T *input, int32_t n) { return name(parameters::target{}, input, n); }
 	REDUCTION_WRAP(reduce_min, vec<T>::max(),
 		[] hostDevice(const T &a, const T &b) { return math::min(a, b); });
-	REDUCTION_WRAP(reduce_max, vec<T>::min(),
+	REDUCTION_WRAP(reduce_max, -vec<T>::max(),
 		[] hostDevice(const T &a, const T &b) { return math::max(a, b); });
 	REDUCTION_WRAP(reduce_sum, vec<T>::zero(), [] hostDevice(const T &a, const T &b) { return a + b; });
 	// REDUCTION_WRAP(reduce_avg, vec<T>::zero(),

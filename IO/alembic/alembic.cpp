@@ -105,20 +105,28 @@ void alembic::load_particles(std::string, uint32_t) {
 
 Alembic::Util::uint32_t tsidx;
 
+void add_int(Alembic::Abc::OCompoundProperty &params, std::vector<int32_t> data,
+	std::string identifier, GeometryScope scope = kVertexScope) {
+	using namespace Alembic::AbcGeom;
+	OInt32GeomParam scalOut(params, identifier, false, scope, 1, tsidx);
+	auto scalSample = OInt32GeomParam::Sample(Int32ArraySample(data), scope);
+	scalOut.set(scalSample);
+};
 void add_float(Alembic::Abc::OCompoundProperty &params, std::vector<float> data,
-               std::string identifier) {
+               std::string identifier, GeometryScope scope = kVertexScope) {
   using namespace Alembic::AbcGeom;
-  OFloatGeomParam scalOut(params, identifier, false, kVertexScope, 1, tsidx);
-  auto scalSample = OFloatGeomParam::Sample(FloatArraySample(data), kVertexScope);
+  OFloatGeomParam scalOut(params, identifier, false, scope, 1, tsidx);
+  auto scalSample = OFloatGeomParam::Sample(FloatArraySample(data), scope);
   scalOut.set(scalSample);
 };
 void add_float3(Alembic::Abc::OCompoundProperty &params, std::vector<V3f> data,
-                std::string identifier) {
+                std::string identifier, GeometryScope scope = kVertexScope) {
   using namespace Alembic::AbcGeom;
-  OV3fGeomParam scalOut(params, identifier, false, kVertexScope, 1, tsidx);
-  auto scalSample = OV3fGeomParam::Sample(V3fArraySample(data), kVertexScope);
+  OV3fGeomParam scalOut(params, identifier, false, scope, 1, tsidx);
+  auto scalSample = OV3fGeomParam::Sample(V3fArraySample(data), scope);
   scalOut.set(scalSample);
 };
+
 
 template <typename info, typename C> auto load_values(C fn) {
   using T = typename info::type;
@@ -167,7 +175,10 @@ path.replace_extension(ext);
       load_values<arrays::velocity>([](auto input) { return V3f(input.x, input.y, input.z); });
   auto scaleVec = load_values<arrays::volume>([](auto input) {
     return (Alembic::Util::float32_t)powf(input / (4.f / 3.f * CUDART_PI_F), 1.f / 3.f);
-  });  
+  });
+  auto hVec = load_values<arrays::position>([](auto input) {
+	  return input.w;
+  });
   auto densityVec = load_values<arrays::density>([](auto input) {
     return (Alembic::Util::float32_t) input;
   });
@@ -188,8 +199,19 @@ path.replace_extension(ext);
   pSchema.set(sample);
   Abc::OCompoundProperty argGeomParams = pSchema.getArbGeomParams();
   add_float(argGeomParams, scaleVec, "s");
+  add_float(argGeomParams, hVec, "h");
   add_float(argGeomParams, densityVec, "density");
   add_float(argGeomParams, neighVec, "neighbors");
+
+
+  add_int(argGeomParams, std::vector<int32_t>{ get<parameters::num_ptcls>()}, "num_ptcls", kConstantScope);
+  add_int(argGeomParams, std::vector<int32_t>{ get<parameters::max_numptcls>()}, "max_numptcls", kConstantScope);
+  add_float(argGeomParams, std::vector<float>{ get<parameters::resolution>()}, "ratio", kConstantScope);
+  add_float(argGeomParams, std::vector<float>{ get<parameters::timestep>()}, "timestep", kConstantScope);
+  add_int(argGeomParams, std::vector<int32_t>{ get<parameters::frame>()}, "frame", kConstantScope);
+  add_float(argGeomParams, std::vector<float>{ get<parameters::simulationTime>()}, "simulationTime", kConstantScope);
+  add_float(argGeomParams, std::vector<float>{ get<parameters::radius>()}, "radius", kConstantScope);
+  add_float(argGeomParams, std::vector<float>{ get<parameters::ptcl_support>()}, "support", kConstantScope);
 
   logger(log_level::info) << "Exporting data as Alembic done." << std::endl;
 

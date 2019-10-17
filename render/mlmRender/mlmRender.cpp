@@ -7,116 +7,62 @@
 #include <iostream>
 #include <sstream>
 #include <render/util/camera.h>
+#include <bitset>
+#include <QApplication>
 
-static const char *vertexShaderSource = R"(#version 450
-in vec3 vertexPosition_modelspace;
-out vec2 UV;
+void MLMRender::updateRTX() {}
+MLMRender::MLMRender(OGLWidget *parent): RTXRender(parent) {
+  cuda_particleSystem::instance().retainArray("auxHashMap");
+  cuda_particleSystem::instance().retainArray("auxCellSpan");
+  //cuda_particleSystem::instance().retainArray("auxCellInformation");
+  //cuda_particleSystem::instance().retainArray("auxCellSurface");
 
-void main(){
-	gl_Position =  vec4(vertexPosition_modelspace,1);
-	UV = (vertexPosition_modelspace.xy+vec2(1,1))/2.0;
-	UV.y = 1.f - UV.y;
-}
-)";
-
-static const char *fragmentShaderSource = R"(#version 450 
-uniform sampler2D renderedTexture;
-
-in vec2 UV;
-out vec3 color;
-
-void main(){
-	vec4 col = texture( renderedTexture, UV);
-	color = vec3(col.xyz) ;
-	//gl_FragDepth = col.w;
-}
-)";
-
-bool MLMRender::valid() { return true; }
-
-void MLMRender::update() {}
-
-MLMRender::MLMRender(OGLWidget *parent) {
-  auto h_scene = hostScene();
-  cudaMalloc(&accumulatebuffer, h_scene.width * h_scene.height * sizeof(float3));
-  initializeOpenGLFunctions();
-  quad_programID = new QOpenGLShaderProgram(parent);
-  quad_programID->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
-  quad_programID->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
-
-  glGenVertexArrays(1, &defer_VAO);
-  glBindVertexArray(defer_VAO);
-  quad_programID->link();
-  parent->bind(quad_programID);
-  quad_programID->bind();
-
-  auto m_posAttr = quad_programID->attributeLocation("vertexPosition_modelspace");
-  glGenTextures(1, &renderedTextureOut);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, renderedTextureOut);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, h_scene.width, h_scene.height, 0, GL_RGBA, GL_FLOAT, 0);
-  cudaGraphicsGLRegisterImage(&renderedResourceOut, renderedTextureOut, GL_TEXTURE_2D,
-                              cudaGraphicsRegisterFlagsSurfaceLoadStore);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glActiveTexture(GL_TEXTURE0);
-  static const GLfloat g_quad_vertex_bufferdata[] = {
-      -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f, -1.0f, 1.0f, 0.0f, 1.0f, -1.0f, 0.0f, 1.0f, 1.0f, 0.0f,
-  };
-
-  GLuint quad_vertexbuffer;
-  glGenBuffers(1, &quad_vertexbuffer);
-  glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_bufferdata), g_quad_vertex_bufferdata, GL_STATIC_DRAW);
-
-  glEnableVertexAttribArray(m_posAttr);
-  glVertexAttribPointer(m_posAttr, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-  glBindVertexArray(0);
-  quad_programID->setUniformValue("renderedTexture", 0);
-
-  quad_programID->release();
-  prepCUDAscene();
-  update();
-
-  cuda_particleSystem::instance().retainArray("auxHashTable");
-  cuda_particleSystem::instance().retainArray("auxCellInformation");
-  cuda_particleSystem::instance().retainArray("auxCellSurface");
-
-  cuda_particleSystem::instance().retainArray("cellSpan");
-  cuda_particleSystem::instance().retainArray("hashMap");
+  cuda_particleSystem::instance().retainArray("compactCellSpan");
+  cuda_particleSystem::instance().retainArray("compactHashMap");
   cuda_particleSystem::instance().retainArray("MLMResolution");
+  //cuda_particleSystem::instance().retainArray("auxDistance");
+  renderMode = get<parameters::renderMode>() % renderModes;
+  //get<parameters::renderMode>() = renderMode;
 }
-
-void MLMRender::render() {
-  fsys = FluidSystem{ 
-	get<parameters::num_ptcls>(), 
-	{
-		get<parameters::min_domain>(),
-		get<parameters::max_domain>() 
+std::string MLMRender::getInformation() {
+	if (!valid()) return "";
+	switch (renderMode) {
+	case 0: return std::string("Render mode: Ray Scheduler [") + std::to_string(framenumber) + "]\n"; break;
+	case 1: return std::string("Render mode: Merged Voxel Tracing [") + std::to_string(framenumber) + "]\n"; break;
+	case 2: return std::string("Render mode: Voxel Tracing [") + std::to_string(framenumber) + "]\n"; break;
+	case 3: return std::string("Render mode: BVH Tracing [") + std::to_string(framenumber) + "]\n"; break;
+	case 4: return std::string("Render mode: Voxel + Bounce [") + std::to_string(framenumber) + "]\n"; break;
+	default: return std::string("Render mode unknown [") + std::to_string(framenumber) + "]\n"; break;
+	}
+}
+void MLMRender::keyPressEvent(QKeyEvent *event) {
+	switch (event->key()) {
+	case Qt::Key_F11: {
+		if (QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))
+			renderMode = (renderMode + renderModes - 1) % renderModes;
+		else
+			renderMode = (renderMode + 1) % renderModes;
+		dirty = true;
+		break;
+	}
+	}
+}
+void MLMRender::renderRTX(bool prettyRender, int32_t framenumber, int32_t seed) {
+	fsys = FluidSystem{
+	  get<parameters::num_ptcls>(),
+	  {
+		  get<parameters::min_coord>(),
+		  get<parameters::max_coord>() + get<parameters::cell_size>() * get<parameters::auxScale>()
 	}
   };
+  //std::cout << fsys.bounds[0].x << ", " << fsys.bounds[0].y << ", " << fsys.bounds[0].z << std::endl;
+	if (renderMode == 3) {
+		auto[bvh, size] = bvhManager.getGPUData();
+		fsys.fluidBVH = bvh;
+	}
 
-  static std::random_device r;
-  static std::default_random_engine e1(r());
-  static std::uniform_int_distribution<int32_t> uniform_dist(INT_MIN, INT_MAX);
-
-  static int32_t frame = -1;
-
-  static int framenumber = 0;
-  auto h_scene = hostScene();
-  if (h_scene.dirty || frame != get<parameters::frame>()) {
-	  frame = get<parameters::frame>();
-    cudaMemset(accumulatebuffer, 1, h_scene.width * h_scene.height * sizeof(float3));
-    framenumber = 0;
-  }
-  framenumber++;
-  
   FluidMemory fmem;
   fmem.grid_size = parameters::grid_size{};
-  fmem.min_domain = parameters::min_domain{};
-  fmem.max_domain = parameters::max_domain{};
   fmem.cell_size = parameters::cell_size{};
   fmem.min_coord = parameters::min_coord{};
 
@@ -129,25 +75,20 @@ void MLMRender::render() {
   fmem.radius = parameters::radius{};
   fmem.rest_density = parameters::rest_density{};
 
-  fmem.cellSpan = arrays::cellSpan::ptr;
-  fmem.hashMap = arrays::hashMap::ptr;
+  fmem.compactHashMap = arrays::compactHashMap::ptr;
+  fmem.compactCellSpan = arrays::compactCellSpan::ptr;
+  fmem.cellSpan = arrays::auxCellSpan::ptr;
+  fmem.hashMap = arrays::auxHashMap::ptr;
   fmem.MLMResolution = arrays::MLMResolution::ptr;
-  fmem.position = arrays::previousPosition::ptr;
+  fmem.position = arrays::position::ptr;
   fmem.volume = arrays::volume::ptr;
 
-  cudaMLMRender(h_scene, renderedResourceOut, fmem, fsys, accumulatebuffer, framenumber, uniform_dist(e1));
+  fmem.auxScale = parameters::auxScale{};
+  fmem.cell_size *= fmem.auxScale;
+  fmem.grid_size /= static_cast<int32_t>(fmem.auxScale);
+  fmem.grid_size += 1;
+  fmem.auxDistance = arrays::auxDistance::ptr;
 
-  glBindVertexArray(defer_VAO);
-  quad_programID->bind();
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, renderedTextureOut);
-  glDrawArrays(GL_TRIANGLES, 0, 6);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, 0);
-  quad_programID->release();
-  glBindVertexArray(0);
-}
-
-void MLMRender::prepCUDAscene() {
-  LOG_INFO << "Rendering data initialised and copied to CUDA global memory\n" << std::endl;
+  auto h_scene = hostScene();
+  cudaMLMRender(h_scene, renderedResourceOut, fmem, fsys, accumulatebuffer, framenumber, seed, renderMode);  
 }

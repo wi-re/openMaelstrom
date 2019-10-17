@@ -29,7 +29,7 @@ void MemoryManager::reclaimMemory() {
       }
     } else {
     //std::cout << P::variableName << "x[" << P::valid() << "] -> " << P::ptr << std::endl;
-      if (P::variableName == get<parameters::render_buffer>())
+      if (P::variableName == get<parameters::render_buffer>() || P::qualifiedName == get<parameters::render_buffer>())
         return;
 		for(const auto& str : persistentArrays){
 			if(P::variableName == str)

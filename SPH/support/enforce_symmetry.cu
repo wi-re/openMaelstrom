@@ -407,9 +407,10 @@ struct is_valid {
 
 void SPH::enforceSymmetry::constrain_support(Memory mem) {
 
-	if (*parameters::support::ptr != "constrained") {
+	if (*parameters::modules::support::ptr != "constrained") {
 		//if (get<parameters::adaptive>() != true) return;
-		if (parameters::cell_structure{} == cell_structuring::MLM) {
+		if (parameters::cell_structure{} == cell_structuring::MLM
+			|| parameters::cell_structure{} == cell_structuring::compactMLM) {
 			cuda::memcpy(mem.particleIndex, mem.MLMResolution, sizeof(int32_t) * mem.num_ptcls, cudaMemcpyDeviceToDevice);
 			launch<symmetry>(mem.num_ptcls, mem);
 			cuda::memcpy(mem.MLMResolution, mem.particleIndex, sizeof(int32_t) * mem.num_ptcls, cudaMemcpyDeviceToDevice);
@@ -418,7 +419,8 @@ void SPH::enforceSymmetry::constrain_support(Memory mem) {
 	}
 	launch<initialize>(mem.num_ptcls, mem);
 
-	if (parameters::cell_structure{} == cell_structuring::MLM) {
+	if (parameters::cell_structure{} == cell_structuring::MLM
+		|| parameters::cell_structure{} == cell_structuring::compactMLM) {
 		//launch<Resolution>(mem.num_ptcls, mem);
 		cuda::memcpy(mem.particleIndex, mem.MLMResolution, sizeof(int32_t) * mem.num_ptcls, cudaMemcpyDeviceToDevice);
 		launch<constrainAndSymmetry>(mem.num_ptcls, mem);

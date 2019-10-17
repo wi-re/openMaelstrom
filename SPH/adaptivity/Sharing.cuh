@@ -6,11 +6,17 @@
 // This function currently serves no purpose.
 basicFunctionType shareDetect(SPH::adaptive::Memory arrays) {
 	checkedParticleIdx(i);
-	arrays.adaptiveMergeable[i] = -3;
+	arrays.mergeCounter[i] = 0;
+	arrays.mergeable[i] = -3;
 	if (arrays.adaptiveClassification[i] >= 0.5f && arrays.adaptiveClassification[i] < 2.f)
-		arrays.adaptiveMergeable[i] = -1;
-	else if (arrays.adaptiveClassification[i] <= -0.5f)
-		arrays.adaptiveMergeable[i] = -2;
+		arrays.mergeable[i] = -1;
+	else if (arrays.adaptiveClassification[i] < 0.f)
+		arrays.mergeable[i] = -2;
+	auto pDist = planeBoundary::distance(arrays.position.first[i], arrays.volume.first[i], arrays);
+	if (pDist.val.w < support_from_volume(1.f) * kernelSize() * 1.5f)
+		arrays.mergeable[i] = -3;
+	if (arrays.lifetime[i].val < 5.f * arrays.timestep.val)
+		arrays.mergeable[i] = -3;
 	return;
 }
 
@@ -19,38 +25,53 @@ basicFunctionType shareDetect(SPH::adaptive::Memory arrays) {
 // found a partner will be marked -2. This function will only find a partner if the partner is of
 // the correct classification and the sharing result would not violate the systemic limit to particle
 // sizes.
-neighFunctionType shareGrabEven(SPH::adaptive::Memory arrays) {
+neighFunctionType shareGrabEven(SPH::adaptive::Memory arrays, int32_t* randomIdx) {
 	checkedParticleIdx(i);
-	if (i % 2 == 0 || arrays.adaptiveMergeable[i] != -1)
+	i = randomIdx[i];
+	if (i % 2 == 0 || arrays.mergeable[i] != -1)
 		return;
-	cache_arrays((pos, position), (vol, volume), (classification, adaptiveClassification));
+	cache_arrays((pos, position.first), (vol, volume.first), (classification, adaptiveClassification));
 
 	auto V_t = level_estimate(arrays, -arrays.distanceBuffer.first[i]);
-	auto V_i = arrays.volume[i];
-	auto V_d = 0.5f * (V_i - V_t);
+	auto V_i = arrays.volume.first[i];
+	auto V_d = (V_i - V_t) * 0.5f;
+	if (V_d < 0.f || V_t <= 0.f)
+		return;
 
-	auto ctr = arrays.adaptiveMergeCounter[i];
+	auto ctr = arrays.mergeCounter[i] + 1;
 
 	iterateNeighbors(j) {
 		if (j != i) {
-			if (math::distance3(pos[i], pos[j]) < support_h(pos[i])) {
+			auto sum_volume = vol[j] + V_d / (ctr);
+			auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
+			if (sum_radius > arrays.radius)
+				continue;
+			auto V_jt = level_estimate(arrays, -arrays.distanceBuffer.first[j]);
+			if (sum_volume >= V_jt * 1.f)
+				continue;
+
+			auto x_i = pos[i];
+			auto x_j = (pos[i] * V_d / ctr + pos[j] * vol[j]) / (sum_volume);
+			auto pDist = planeBoundary::distance(x_i, V_t, arrays);
+			if (pDist.val.w < OFFSET(V_t.val))
+				continue;
+			pDist = planeBoundary::distance(x_j, sum_volume, arrays);
+			if (pDist.val.w < OFFSET(sum_volume.val))
+				continue;
+			if (math::distance3(x_i, x_j) < OFFSET(V_t.val) * 2.f ||
+				math::distance3(x_i, x_j) < OFFSET(sum_volume.val) * 2.f) continue;
+			if (math::distance3(pos[i], pos[j]) < support_from_volume(sum_volume) * kernelSize() * 0.45f) {
 				if (j % 2 == 0) {
-					if (classification[j] >= 0.f)
+					if (classification[j] >= -0.5f)
 						continue;
-					cuda_atomic<int32_t> neighbor_mergeable(arrays.adaptiveMergeable + j);
+					cuda_atomic<int32_t> neighbor_mergeable(arrays.mergeable + j);
 					int32_t cas_val = neighbor_mergeable.CAS(-2, i);
 					if (cas_val != -2)
 						continue;
-
-					auto sum_volume = vol[j] + V_d / (ctr + 1.f);
-					auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
-					if (sum_radius > arrays.radius)
-						neighbor_mergeable.CAS(i, -2);
-					else {
-						arrays.adaptiveMergeable[i] = -4;
-						ctr++;
-						arrays.adaptiveMergeCounter[i]++;
-					}
+					arrays.mergeable[i] = -4;
+					ctr++;
+					arrays.mergeCounter[i]++;
+					//return;
 				}
 			}
 		}
@@ -62,38 +83,55 @@ neighFunctionType shareGrabEven(SPH::adaptive::Memory arrays) {
 // found a partner will be marked -2. This function will only find a partner if the partner is of
 // the correct classification and the sharing result would not violate the systemic limit to particle
 // sizes. This function is an almost duplicate of shareGrabEven.
-neighFunctionType shareGrabOdd(SPH::adaptive::Memory arrays) {
+neighFunctionType shareGrabOdd(SPH::adaptive::Memory arrays, int32_t* randomIdx) {
 	checkedParticleIdx(i);
-	if (i % 2 != 0 || arrays.adaptiveMergeable[i] != -1)
+	i = randomIdx[i];
+	if (i % 2 != 0 || arrays.mergeable[i] != -1)
 		return;
-	cache_arrays((pos, position), (vol, volume), (classification, adaptiveClassification));
+	cache_arrays((pos, position.first), (vol, volume.first), (classification, adaptiveClassification));
 
 	auto V_t = level_estimate(arrays, -arrays.distanceBuffer.first[i]);
-	auto V_i = arrays.volume[i];
-	auto V_d = V_i - V_t;
+	auto V_i = arrays.volume.first[i];
+	auto V_d = (V_i - V_t)*0.5f;
 
-	auto ctr = arrays.adaptiveMergeCounter[i];
+	auto ctr = arrays.mergeCounter[i] + 1;
+
+	if (V_d < 0.f || V_t <= 0.f)
+		return;
 
 	iterateNeighbors(j) {
 		if (j != i) {
-			if (math::distance3(pos[i], pos[j]) < support_h(pos[i])) {
+			auto sum_volume = vol[j] + V_d / (ctr);
+			auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
+			if (sum_radius > arrays.radius)
+				continue;
+			auto V_jt = level_estimate(arrays, -arrays.distanceBuffer.first[j]);
+			if (sum_volume >= V_jt * 1.f)
+				continue;
+
+			auto x_i = pos[i];
+			auto x_j = (pos[i] * V_d / ctr + pos[j] * vol[j]) / (sum_volume);
+			auto pDist = planeBoundary::distance(x_i, V_t, arrays);
+			if (pDist.val.w < OFFSET(V_t.val))
+				continue;
+			pDist = planeBoundary::distance(x_j, sum_volume, arrays);
+			if (pDist.val.w < OFFSET(sum_volume.val))
+				continue;
+			if (math::distance3(x_i, x_j) < OFFSET(V_t.val) * 2.f ||
+				math::distance3(x_i, x_j) < OFFSET(sum_volume.val) * 2.f) continue;
+			if (math::distance3(pos[i], pos[j]) < support_from_volume(sum_volume) * kernelSize() * 0.45f) {
 				if (j % 2 != 0) {
-					if (classification[j] >= 0.f)
+					if (classification[j] >= -0.5f)
 						continue;
-					cuda_atomic<int32_t> neighbor_mergeable(arrays.adaptiveMergeable + j);
+					cuda_atomic<int32_t> neighbor_mergeable(arrays.mergeable + j);
 					int32_t cas_val = neighbor_mergeable.CAS(-2, i);
 					if (cas_val != -2)
 						continue;
 
-					auto sum_volume = vol[j] + V_d / (ctr + 1.f);
-					auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
-					if (sum_radius > arrays.radius)
-						neighbor_mergeable.CAS(i, -2);
-					else {
-						arrays.adaptiveMergeable[i] = -4;
+						arrays.mergeable[i] = -4;
 						ctr++;
-						arrays.adaptiveMergeCounter[i]++;
-					}
+						arrays.mergeCounter[i]++;
+						//return;
 				}
 			}
 		}
@@ -107,68 +145,72 @@ hostDeviceInline void shareValue(uint32_t, uint32_t, float_u<SI::volume>, float_
 // This function is recursive with respect to it's variadic argument list.
 template <typename T, typename... Ts>
 hostDeviceInline void shareValue(uint32_t i, uint32_t j, float_u<SI::volume> m_s,
-                                    float_u<SI::volume> m_p, T arg, Ts... ref) {
-  if (arg.first != nullptr) {
-    auto a_i = math::getValue(arg.first[i]);
-    auto m_i = m_s.val;
-    auto a_j = math::getValue(arg.first[j]);
-    auto m_j = m_p.val;
-    using Ty = typename std::decay_t<decltype(*(arg.first))>;
-    using Ay = std::decay_t<decltype(a_i)>;
-    using Uy = decltype(math::weak_get<1>(std::declval<Ay>()));
-    using Fy = typename vector_t<float, math::dimension<Ay>::value>::type;
-    using Gy = typename vector_t<Uy, math::dimension<Ay>::value>::type;
-    arg.first[i] = Ty{a_i};
-    arg.first[j] = Ty{math::castTo<Gy>((math::castTo<Fy>(a_i) * m_i + math::castTo<Fy>(a_j) * m_j) / (m_i + m_j))};
-
-    // auto a = arg.first[i];
-    // auto b = arg.first[j];
-    // arg.first[j] = (m_s * a + m_p * b) / (m_p + m_s);
-    // arg.first[i] = a;
-  }
-  shareValue(i, j, m_s, m_p, ref...);
+	float_u<SI::volume> m_p, T arg, Ts... ref) {
+	if (arg.first != nullptr) {
+		auto a = arg.first[i];
+		auto b = arg.first[j];
+		arg.first[j] = (m_s.val * a + m_p.val * b) / (m_p.val + m_s.val);
+		arg.first[i] = a;
+	}
+	shareValue(i, j, m_s, m_p, ref...);
 }
+
 
 // This function shares all particles that have found sharing partners with their appropriate
 // sharing partners.
-neighFunctionType shareGrabbed(SPH::adaptive::Memory arrays, Ts... tup) {
+neighFunctionDeviceType shareGrabbed(SPH::adaptive::Memory arrays, Ts... tup) {
   checkedParticleIdx(i);
-  if (arrays.adaptiveMergeable[i] != -4)
+  if (arrays.mergeable[i] != -4)
     return;
 
-  float counter = static_cast<float>(arrays.adaptiveMergeCounter[i]);
+  float counter = static_cast<float>(arrays.mergeCounter[i]);
+  atomicAdd(arrays.adaptivityCounter + (math::clamp(arrays.mergeCounter[i], 1, 16) - 1), 1);
 
-  cuda_atomic<int32_t> num_ptcls(arrays.adaptiveNumPtcls);
+  cuda_atomic<int32_t> num_ptcls(arrays.ptclCounter);
   ++num_ptcls;
 
-  auto V_s = 0.5f * (arrays.volume[i] - level_estimate(arrays, -arrays.distanceBuffer.first[i])) / counter;
+  auto V_s = (arrays.volume.first[i] - level_estimate(arrays, -arrays.distanceBuffer.first[i]))*0.5f / counter;
 
   iterateNeighbors(j) {
-    if (arrays.adaptiveMergeable[j] != i)
+    if (arrays.mergeable[j] != i)
       continue;
-    auto V_j = arrays.volume[j];
+    auto V_j = arrays.volume.first[j];
     auto V_m = V_j + V_s;
 
     shareValue(i, j, V_s, V_j, tup...);
 
-    arrays.adaptiveSplitIndicator[j] = 0;
+    arrays.splitIndicator[j] = 0;
     arrays.lifetime[j] = 0.0_s;
-    arrays.volume[j] = V_m;
-    math::unit_assign<4>(arrays.position[j], support_from_volume(V_m));
-    arrays.volume[i] = arrays.volume[i] - V_s;
+    arrays.volume.first[j] = V_m;
+
+	auto h = support_from_volume(V_m).val;
+	float threshold = 0.f * 0.24509788f * h * kernelSize();
+	auto pDist = planeBoundary::distance(arrays.position.first[j], V_m, arrays);
+	//if (pDist.val.w < 0.f * h * kernelSize())
+	//	arrays.position.first[j] -= (pDist.val) * (pDist.val.w - threshold);
+
+	math::unit_assign<4>(arrays.position.first[j], support_from_volume(V_m));
+    arrays.volume.first[i] = arrays.volume.first[i] - V_s;
   }
-  math::unit_assign<4>(arrays.position[i], support_from_volume(arrays.volume[i]));
+
+  auto h = support_from_volume(arrays.volume.first[i]).val;
+  float threshold = 0.f * 0.24509788f * h * kernelSize();
+  auto pDist = planeBoundary::distance(arrays.position.first[i], arrays.volume.first[i], arrays);
+  //if (pDist.val.w < 0.f * h * kernelSize())
+//	  arrays.position.first[i] -= (pDist.val) * (pDist.val.w - threshold);
+  math::unit_assign<4>(arrays.position.first[i], support_from_volume(arrays.volume.first[i]));
+
   arrays.lifetime[i] = 0.0_s;
 }
 
 basicFunction(detectSharingParticles, shareDetect, "Adaptive: init (share)");
 neighFunction(grabEvenSharingParticles, shareGrabEven, "Adaptive: find even partners (share)", caches<float4, float, float>{});
 neighFunction(grabOddSharingParticles, shareGrabOdd, "Adaptive: find odd partners (share)", caches<float4, float, float>{});
-neighFunction(shareParticles, shareGrabbed, "Adaptive: sharing particles");
+neighFunctionDevice(shareParticles, shareGrabbed, "Adaptive: sharing particles");
 
 // Helper function to call the sharing function properly by transforming the arguments from a tuple to a variadic list
 template<typename... Ts>
 auto ShareGrabbed(std::tuple<Ts...>, SPH::adaptive::Memory mem) {
-	launch<shareParticles, decltype(std::make_pair((typename Ts::unit_type *)Ts::ptr, (typename Ts::unit_type *)Ts::rear_ptr))...>(
+	launchDevice<shareParticles, decltype(std::make_pair((typename Ts::unit_type *)Ts::ptr, (typename Ts::unit_type *)Ts::rear_ptr))...>(
 		mem.num_ptcls, mem, std::make_pair((typename Ts::unit_type *)Ts::ptr, (typename Ts::unit_type *)Ts::rear_ptr)...);
 }

@@ -2,82 +2,88 @@
   "functions":{
     "iisph17": {
       "description": "Module used to implement an Implicit Incompressible SPH (IISPH) Solver modified from the updated IISPH paper.",
-      "folder": "pressure",
+      "folder": "IISPH17",
       "name": "IISPH17",
       "target": "cuda",
       "units": true,
-      "cell_info": false,
+      "cell_info": true,
       "virtual_info": true,
       "boundaryInfo": true, 
       "neighbor_info": true,
       "functions": [ "pressure_solve" ],
-      "depends_any": [ { "pressure": "IISPH17" } ],
+      "depends_any": [ { "modules::pressure": "IISPH17" } ],
       "parameters": [ "eta", "iterations", "density_error"],
       "input": [ "position", "density", "volume" ],
-      "temporary": [ "iisphVolume", "iisphSource", "iisphAii", "iisphVolumeError", "iisphOmega", "iisphAcceleration" ],
+      "temporary": [ "apparentVolume", "sourceTerm", "Aii", "volumeError", "iisph17::omega", "predictedAcceleration", "boundaryPressure" ],
       "output": [ "acceleration", "velocity" ],
       "swap": [ "pressure" ]
     }
   },
   "arrays":{
-    "iisph17Arrays": {
-      "iisphSource": {
+    "iisph17": {
+      "sourceTerm": {
         "description": "Source term used for solving IISPH.",
         "type": "float",
         "unit": "void",
         "depends_any": [
-          { "pressure": "IISPH17" },
-          { "pressure": "densityMapIISPH" }
+          { "modules::pressure": "IISPH17" },
+          { "modules::pressure": "densityMapIISPH" }
         ],
         "kind": "particleData"
       },
-      "iisphOmega": {
+      "boundaryPressure": {
+        "description": "Source term used for solving IISPH.",
+        "type": "float",
+        "unit": "SI::Pa",
+        "kind": "particleData"
+      },
+      "omega": {
         "description": "Corrective term used to adjust the solver for changing support radii.",
         "type": "float",
         "unit": "void",
         "depends_any": [
-          { "pressure": "IISPH17" },
-          { "pressure": "densityMapIISPH" }
+          { "modules::pressure": "IISPH17" },
+          { "modules::pressure": "densityMapIISPH" }
         ],
         "kind": "particleData"
       },
-      "iisphVolume": {
+      "apparentVolume": {
         "description": "Contains the actual volume of a sample V_i = (V_0 / rho_i).",
         "type": "float",
         "unit": "SI::volume",
         "depends_any": [
-          { "pressure": "IISPH17" },
-          { "pressure": "densityMapIISPH" }
+          { "modules::pressure": "IISPH17" },
+          { "modules::pressure": "DFSPH" }
         ],
         "kind": "particleData"
       },
-      "iisphAii": {
+      "Aii": {
         "description": "Diagonal elements of the matrix used to solve for incompressibility.",
         "type": "float",
         "unit": "SI::derived_unit<SI::recip<SI::Pa>>",
-        "depends_any": [ 
-          { "pressure": "IISPH17" },
-          { "pressure": "densityMapIISPH" }
+        "depends_any": [
+          { "modules::pressure": "IISPH17" },
+          { "modules::pressure": "densityMapIISPH" }
         ],
         "kind": "particleData"
-      },  
-      "iisphAcceleration": {
+      },
+      "predictedAcceleration": {
         "description": "Diagonal elements of the matrix used to solve for incompressibility.",
         "type": "float4",
         "unit": "SI::acceleration",
         "depends_any": [
-          { "pressure": "IISPH17" },
-          { "pressure": "densityMapIISPH" }
+          { "modules::pressure": "IISPH17" },
+          { "modules::pressure": "DFSPH" }
         ],
         "kind": "particleData"
       },
-      "iisphVolumeError": {
+      "volumeError": {
         "description": "Error of the incompressibility solver used as a threshold.",
         "type": "float",
         "unit": "void",
         "depends_any": [
-          { "pressure": "IISPH17" },
-          { "pressure": "densityMapIISPH" }
+          { "modules::pressure": "IISPH17" },
+          { "modules::pressure": "densityMapIISPH" }
         ],
         "kind": "particleData"
       }

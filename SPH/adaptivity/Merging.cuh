@@ -5,12 +5,14 @@
 // Function that markes all particles based on their classification as a particle that should be
 // merged (-1) or any other particle (-3)
 basicFunctionType mergeDetect(SPH::adaptive::Memory arrays) {
-  checkedParticleIdx(i);
-  arrays.adaptiveMergeable[i] = -3;
-  if (arrays.adaptiveClassification[i] <= -0.5f)
-    arrays.adaptiveMergeable[i] = -1;
-  else
-    return;
+	checkedParticleIdx(i);
+	arrays.mergeCounter[i] = 0;
+	arrays.mergeable[i] = -4;
+	//arrays.debugArray[i] = float4{ 0.f,0.f,0.f,0.f };
+	if (arrays.adaptiveClassification[i] <= -1.5f && arrays.lifetime[i] >= 0.f)
+		arrays.mergeable[i] = -1;
+	if (arrays.lifetime[i].val < 10.f * arrays.timestep.val)
+		arrays.mergeable[i] = -4;
 }
 
 // Finds merging partners with even indices for particles with odd indices. Found particles will be
@@ -18,37 +20,56 @@ basicFunctionType mergeDetect(SPH::adaptive::Memory arrays) {
 // found a partner will be marked -2. This function will only find a partner if the partner is of
 // the correct classification and the merge result would not violate the systemic limit to particle
 // sizes.
-neighFunctionType mergeGrabEven(SPH::adaptive::Memory arrays) {
-  checkedParticleIdx(i);
-  if (i % 2 == 0 || arrays.adaptiveMergeable[i] != -1)
-    return;
-  cache_arrays((pos, position), (vol, volume), (classification, adaptiveClassification));
-  float counter = arrays.adaptiveMergeCounter[i] + 1.f;
-   
-  iterateNeighbors(j) {
-    if (j != i) {
-      if (math::distance3(pos[i], pos[j]) < support_h(pos[i])) {
-        if (j % 2 == 0) {
-          if (classification[j] > -0.5f)
-            continue;
-          cuda_atomic<int32_t> neighbor_mergeable(arrays.adaptiveMergeable + j);
-          int32_t cas_val = neighbor_mergeable.CAS(-1, i);
-		  if (cas_val != -1) 
-			continue;
-		  auto sum_volume = vol[j] + vol[i] / counter;;
-          auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
-		  auto targetVolume = level_estimate(arrays, -arrays.distanceBuffer.first[j]);
-		  if (sum_radius > arrays.radius || sum_volume > targetVolume * 1.8f)
-            neighbor_mergeable.CAS(i, -1);
-		  else {
-			  arrays.adaptiveMergeable[i] = -2;
-			  arrays.adaptiveMergeCounter[i]++;
-			  counter++;
-		  }
-        }
-      }
-    }
-  }
+neighFunctionType mergeGrabEven(SPH::adaptive::Memory arrays, int32_t* idxArray) {
+	checkedParticleIdx(i);
+	i = idxArray[i];
+	if (i % 2 == 0 || arrays.mergeable[i] != -1 || arrays.adaptiveClassification[i] > -1.5f)
+		return;
+	cache_arrays((pos, position.first), (vol, volume.first), (classification, adaptiveClassification));
+	float counter = arrays.mergeCounter[i] + 1.f;
+	//float4 dbgVal = float4{ 0.f,0.f,0.f,0.f };
+	int32_t c = 0;
+	iterateNeighbors(j) {
+		if (++c > 5) break;
+		if (j != i) {
+			auto sum_volume = vol[j] + vol[i] / counter;
+			auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
+			auto targetVolume = level_estimate(arrays, -arrays.distanceBuffer.first[j]);
+			if (sum_volume > targetVolume *1.1f) continue;
+			//dbgVal.x++;
+			//if (sum_radius <= arrays.radius) dbgVal.y++;
+			if (sum_radius <= arrays.radius &&
+				math::distance3(pos[i], pos[j]) < (support_from_volume(sum_volume) * kernelSize() * 0.5f)) {
+				//dbgVal.z++;
+				auto pDist = planeBoundary::distance((arrays.position.first[i] * vol[i] / counter + arrays.position.first[j] * vol[j]) / (vol[i] / counter + vol[j]), vol[i] / counter + vol[j], arrays);
+				if (pDist.val.w < OFFSET(sum_volume.val))
+					continue;
+				if (j % 2 == 0) {
+					//if (!(classification[j] < -1.5f || (classification[j] > 0.1f && classification[j] < 1.1f)))
+					if (!(classification[j] < -1.5f))
+						continue;
+					//dbgVal.w++;
+					cuda_atomic<int32_t> neighbor_mergeable(arrays.mergeable + j);
+					int32_t cas_val = neighbor_mergeable.CAS(-1, i);
+					if (cas_val != -1)
+						continue;
+					//dbgVal.w = -1;
+					auto sum_volume = vol[j] + vol[i] / counter;;
+					auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
+					auto targetVolume = level_estimate(arrays, -arrays.distanceBuffer.first[j]);
+					//if (sum_radius > arrays.radius /*|| sum_volume > targetVolume * 1.8f*/)
+					//	neighbor_mergeable.CAS(i, cas_val);
+					//else {
+						arrays.mergeable[i] = -2;
+						arrays.mergeCounter[i]++;
+						counter++;
+						//break;
+					//}
+				}
+			}
+		}
+	}
+	//arrays.debugArray[i] = dbgVal;
 }
 
 // Finds merging partners with odd indices for particles with even indices. Found particles will be
@@ -56,105 +77,114 @@ neighFunctionType mergeGrabEven(SPH::adaptive::Memory arrays) {
 // found a partner will be marked -2. This function will only find a partner if the partner is of
 // the correct classification and the merge result would not violate the systemic limit to particle
 // sizes. This function is an almost duplicate of mergeGrabEven.
-neighFunctionType mergeGrabOdd(SPH::adaptive::Memory arrays) {
+neighFunctionType mergeGrabOdd(SPH::adaptive::Memory arrays, int32_t* idxArray) {
 	checkedParticleIdx(i);
-	if (i % 2 != 0 || arrays.adaptiveMergeable[i] != -1)
+	i = idxArray[i];
+	if (i % 2 != 0 || arrays.mergeable[i] != -1 || arrays.adaptiveClassification[i] > -1.5f)
 		return;
-	cache_arrays((pos, position), (vol, volume), (classification, adaptiveClassification));
-	float counter = arrays.adaptiveMergeCounter[i] + 1.f;
+	cache_arrays((pos, position.first), (vol, volume.first), (classification, adaptiveClassification));
+	float counter = arrays.mergeCounter[i] + 1.f;
+	//float4 dbgVal = arrays.debugArray[i];
+	int32_t c = 0;
 	iterateNeighbors(j) {
+		if (++c > 5) break;
 		if (j != i) {
-			if (math::distance3(pos[i], pos[j]) < support_h(pos[i])) {
+			auto sum_volume = vol[j] + vol[i] / counter;
+			auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
+			auto targetVolume = level_estimate(arrays, -arrays.distanceBuffer.first[j]);
+			if (sum_volume > targetVolume * 1.1f) continue;
+			//dbgVal.x++;
+			//if (sum_radius <= arrays.radius) dbgVal.y++;
+			if (sum_radius <= arrays.radius && 
+				math::distance3(pos[i], pos[j]) < (support_from_volume(sum_volume) * kernelSize() * 0.5f)) {
+				//dbgVal.z++;
+
+				auto pDist = planeBoundary::distance((arrays.position.first[i] * vol[i] / counter + arrays.position.first[j] * vol[j]) / (vol[i] / counter + vol[j]), vol[i] / counter + vol[j], arrays);
+				if (pDist.val.w < OFFSET(sum_volume.val))
+					continue;
+
 				if (j % 2 != 0) {
-					if (classification[j] > -0.5f)
+					//if (!(classification[j] < -1.5f || (classification[j] > 0.1f && classification[j] < 1.1f)))
+					if (!(classification[j] < -1.5f))
 						continue;
-					cuda_atomic<int32_t> neighbor_mergeable(arrays.adaptiveMergeable + j);
+					//dbgVal.w++;
+					cuda_atomic<int32_t> neighbor_mergeable(arrays.mergeable + j);
 					int32_t cas_val = neighbor_mergeable.CAS(-1, i);
 					if (cas_val != -1)
 						continue;
-					auto sum_volume = vol[j] + vol[i] / counter;
-					auto sum_radius = math::power<ratio<1, 3>>(sum_volume * PI4O3_1);
-					auto targetVolume = level_estimate(arrays, -arrays.distanceBuffer.first[j]);
-					if (sum_radius > arrays.radius || sum_volume > targetVolume * 1.8f)
-						neighbor_mergeable.CAS(i, -1);
-					else {
-						arrays.adaptiveMergeable[i] = -2;
-						arrays.adaptiveMergeCounter[i]++;
+					//dbgVal.w = -1;
+					//else {
+						arrays.mergeable[i] = -2;
+						arrays.mergeCounter[i]++;
 						counter++;
-					}
+						//break;
+					//}
 				}
 			}
 		}
 	}
+	//arrays.debugArray[i] = dbgVal;
 }
 
 // Variadic recursion base
 hostDeviceInline void mergeValue(uint32_t, uint32_t, float_u<SI::volume>, float_u<SI::volume>) {}
-#ifdef _WIN32
-#pragma warning( push )  
-#pragma warning( disable : 4244 )  
-#endif
+
 // Caclulates the mass weighed average of a pointer pair stored in arg based on the particle masses.
 // This function is recursive with respect to it's variadic argument list.
 template <typename T, typename... Ts>
 hostDeviceInline void mergeValue(uint32_t particle_idx, uint32_t neighbor_idx, float_u<SI::volume> particle_mass,
-                                    float_u<SI::volume> partner_mass, T arg, Ts... ref) {
-  if (arg != nullptr){
-    auto a_i = math::getValue(arg[particle_idx]);
-    auto m_i = particle_mass.val;
-    auto a_j = math::getValue(arg[neighbor_idx]);
-    auto m_j = partner_mass.val;
-    using Ty = typename std::decay_t<decltype(*arg)>;
-    using Ay = std::decay_t<decltype(a_i)>;
-    using Uy = decltype(math::weak_get<1>(std::declval<Ay>()));
-    using Fy = typename vector_t<float, math::dimension<Ay>::value>::type;
-    using Gy = typename vector_t<Uy, math::dimension<Ay>::value>::type;
-    arg[neighbor_idx] = Ty{math::castTo<Gy>((math::castTo<Fy>(a_i) * m_i + math::castTo<Fy>(a_j) * m_j) / (m_i + m_j))};
-        }
-  mergeValue(particle_idx, neighbor_idx, particle_mass, partner_mass, ref...);
+	float_u<SI::volume> partner_mass, T arg, Ts... ref) {
+	if (arg != nullptr)
+		arg[neighbor_idx] = static_cast<typename std::decay<decltype(*arg)>::type>(((arg[particle_idx] * particle_mass.val + arg[neighbor_idx] * partner_mass.val) / (particle_mass.val + partner_mass.val)));
+	mergeValue(particle_idx, neighbor_idx, particle_mass, partner_mass, ref...);
 }
-#ifdef _WIN32
-#pragma warning(pop)
-#endif
+
 // This function merges all particles that have found merging partners with their appropriate
 // merging partners. The particle that is being merged is removed from the simulation by being
 // marked invalid.
-neighFunctionType mergeGrabbed(SPH::adaptive::Memory arrays, Ts... tup) {
-  checkedParticleIdx(i);
-  if (arrays.adaptiveMergeable[i] != -2)
-    return;
+neighFunctionDeviceType mergeGrabbed(SPH::adaptive::Memory arrays, Ts... tup) {
+	checkedParticleIdx(i);
+	if (arrays.mergeable[i] != -2)
+		return;
+	if (arrays.adaptiveClassification[i] > -1.5f)
+		return;
+	cuda_atomic<int32_t> num_ptcls(arrays.ptclCounter);
+	++num_ptcls;
 
-  cuda_atomic<int32_t> num_ptcls(arrays.adaptiveNumPtcls);
-  ++num_ptcls;
+	float counter = static_cast<float>(arrays.mergeCounter[i]);
+	auto V_i = arrays.volume.first[i] / counter;
 
-  float counter = static_cast<float>(arrays.adaptiveMergeCounter[i]);
-  auto V_i = arrays.volume[i] / counter;
+	atomicAdd(arrays.adaptivityCounter + (math::clamp(arrays.mergeCounter[i], 1, 16) - 1), 1);
+	iterateNeighbors(j) {
+		if (arrays.mergeable[j] != i)
+			continue;
 
-  iterateNeighbors(j) {
-    if (arrays.adaptiveMergeable[j] != i)
-      continue;
+		auto V_j = arrays.volume.first[j];
+		auto V_m = V_i + V_j;
 
-    auto V_j = arrays.volume[j];
-    auto V_m = V_i + V_j;
+		mergeValue(i, j, V_i, V_j, tup...);
 
-    mergeValue(i, j, V_i, V_j, tup...);
+		arrays.splitIndicator[j] = 2;
+		arrays.lifetime[j] = -0.f * arrays.blendSteps * arrays.timestep *0.25f;
+		arrays.volume.first[j] = V_m;
 
-    arrays.adaptiveSplitIndicator[j] = 0;
-    arrays.lifetime[j] = -arrays.blendsteps * arrays.timestep *0.25f;
-    arrays.volume[j] = V_m;
-
-    math::unit_assign<4>(arrays.position[j], support_from_volume(V_m));
-  }
-  math::unit_assign<4>(arrays.position[i], float_u<SI::m>(FLT_MAX));
+		auto h = support_from_volume(V_m).val;
+		float threshold = 0.24509788f * h * kernelSize() * 1.f;
+		auto pDist = planeBoundary::distance(arrays.position.first[j], V_m, arrays);
+		//if (pDist.val.w < threshold)
+		//	arrays.position.first[j] -= (pDist.val) * (pDist.val.w - threshold);
+		math::unit_assign<4>(arrays.position.first[j], support_from_volume(V_m));
+	}
+	math::unit_assign<4>(arrays.position.first[i], float_u<SI::m>(FLT_MAX));
 }
 
 basicFunction(detectMergingParticles, mergeDetect, "Adaptive: init (merge)");
 neighFunction(grabEvenMergingParticles, mergeGrabEven, "Adaptive: find even partners (merge)", caches<float4, float, float>{});
 neighFunction(grabOddMergingParticles, mergeGrabOdd, "Adaptive: find odd partners (merge)", caches<float4, float, float>{});
-neighFunction(mergeParticles, mergeGrabbed, "Adaptive: merging particles");
+neighFunctionDevice(mergeParticles, mergeGrabbed, "Adaptive: merging particles");
 
 // Helper function to call the merging function properly by transforming the arguments from a tuple to a variadic list
 template <typename... Ts> auto MergeGrabbed(std::tuple<Ts...>, SPH::adaptive::Memory arrays) {
-  launch<mergeParticles, decltype((typename Ts::unit_type *)Ts::ptr)...>(
+	launchDevice<mergeParticles>(
 		arrays.num_ptcls, arrays, (typename Ts::unit_type *)Ts::ptr...);
 }

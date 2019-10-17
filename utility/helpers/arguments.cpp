@@ -1,5 +1,18 @@
-#include <IO/config/config.h>
+#include <iostream>
+#include <vector>
+//#define BOOST_MSVC
+//using std::is_assignable;
+//using std::is_volatile;
+#include <boost/type_traits/is_assignable.hpp>
+#include <boost/type_traits/is_volatile.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/algorithm/string.hpp>
 #include <IO/config/parser.h>
+#include <IO/config/config.h>
+#include <boost/optional.hpp>
+
 #include <boost/format.hpp>
 #include <cuda_runtime.h>
 #include <fstream>
@@ -72,7 +85,7 @@ template <typename param> struct param_stats : public param_stats_base {
     stddev = static_cast<T>(sqrt(stddev));
 
     std::stringstream sstream;
-    sstream << std::setw(field_len) << param::variableName;
+    sstream << std::setw(field_len) << param::jsonName;
     sstream << " ";
     sstream << pad(IO::config::convertToString(avg)) << " ";
     sstream << pad(IO::config::convertToString(median)) << " ";
@@ -86,9 +99,10 @@ template <typename param> struct param_stats : public param_stats_base {
 
   void sample() { samples.push_back(get<param>()); }
 
-  std::string name() { return param::variableName; }
+  std::string name() { return param::jsonName; }
 };
 std::vector<param_stats_base *> param_watchlist;
+
 
 void arguments::loadbar(unsigned int x, unsigned int n, uint32_t w, std::ostream &io) {
   if ((x != n) && (x % (n / 100 + 1) != 0))
@@ -109,13 +123,12 @@ void arguments::loadbar(unsigned int x, unsigned int n, uint32_t w, std::ostream
   auto current_time = std::chrono::high_resolution_clock::now();
 
   io << "\r"
-     << boost::format("%8.2f") %
-            std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count();
+     << formatFloat((float) std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count());
 
   float tpp =
       std::chrono::duration_cast<std::chrono::seconds>(current_time - start_time).count() / ratio;
 
-  io << "s of est. " << boost::format("%8.2f") % tpp << "s" << std::flush;
+  io << "s of est. " << formatFloat(tpp) << "s" << std::flush;
 }
 
 arguments::cmd &arguments::cmd::instance() {
@@ -129,6 +142,8 @@ bool arguments::cmd::init(bool console, int argc, char *argv[]) {
   po::options_description desc("Allowed options");
   desc.add_options()
 	  ("snap,s", po::value<std::string>(), "produce help message")
+	  ("set", po::value<std::string>(), "produce help message")
+	  ("device,d", po::value<int32_t>(), "set CUDA device")
 	  ("help,h", "produce help message")
 	  ("frames,f", po::value<int>(), "set frame limiter")
 	  ("time,t", po::value<double>(),"set time limiter")
@@ -138,11 +153,13 @@ bool arguments::cmd::init(bool console, int argc, char *argv[]) {
 	  ("memory,mem", "print memory consumption at end")
 	  ("info,i", "print total runtime at end")
 	  ("log", po::value<std::string>(), "log to file")
+	  ("rtx", po::value<int>()->implicit_value(0), "enable ray Tracing from the start")
 	  ("config", po::value<std::string>(),"specify config file to open")
 	  ("config_id,c", po::value<int>(), "load known config with given id")
 	  ("option,o", po::value<int>(), "load optional parameters from config")
 	  ("list,l", "list all known ids")("params,p", "watch parameters and print them")
 	  ("record,r", po::value<std::string>(), "log to file")
+	  ("render", po::value<std::string>(), "render to directory")
 	  ("config_log", po::value<std::string>(), "save the config at the end to file")
 	  ("neighbordump", po::value<std::string>(),"writes a copy of the neighborlist at the end to file")
 	  ("json,j", po::value<std::vector<std::string>>(&jsons)->multitoken(),"writes a copy of the neighborlist at the end to file")
@@ -184,12 +201,20 @@ bool arguments::cmd::init(bool console, int argc, char *argv[]) {
   }
 
   logger::silent = true;
+  if (vm.count("device")) {
+	  cudaSetDevice(vm["device"].as<int32_t>());
+  }
 
   if (vm.count("params")) {
     param_watchlist.push_back(new param_stats<parameters::num_ptcls>());
     param_watchlist.push_back(new param_stats<parameters::timestep>());
     param_watchlist.push_back(new param_stats<parameters::iterations>());
     param_watchlist.push_back(new param_stats<parameters::density_error>());
+  }
+  if (vm.count("set")) {
+	  std::stringstream sstream;
+	  sstream << "particleSets.set1=" << vm["set"].as<std::string>();
+	  jsons.push_back(sstream.str());
   }
 
   if (vm.count("verbose"))
@@ -229,7 +254,22 @@ bool arguments::cmd::init(bool console, int argc, char *argv[]) {
 	  sstream << "simulation_settings.debugRegex=" << vm["debugRegex"].as<std::string>();
 	  jsons.push_back(sstream.str());
   }
+  if (vm.count("render")) {
+	  renderToFile = true;
+	  renderDirectory = std::experimental::filesystem::path(*parameters::working_directory::ptr);
+	  //std::cout << renderDirectory.string() << std::endl;
+	  renderDirectory /= vm["render"].as<std::string>();
+	  //std::cout << renderDirectory.string() << std::endl;
+	  if (!std::experimental::filesystem::exists(renderDirectory))
+		  std::experimental::filesystem::create_directories(renderDirectory);
+  }
 
+  if (vm.count("rtx")) 
+  {
+	  jsons.push_back("modules.rayTracing=true");
+	  jsons.push_back(std::string("modules.renderMode=") + std::to_string(vm["rtx"].as<int32_t>()));
+	  rtx = true;
+  }
 
   auto config_paths = resolveFile("cfg/paths.cfg");
   std::ifstream ifs(config_paths.string());
@@ -240,7 +280,7 @@ bool arguments::cmd::init(bool console, int argc, char *argv[]) {
   ifs.close();
   std::experimental::filesystem::path default_config = "";
   try{
-    default_config = resolveFile("DamBreak/config.json", config_folders);
+    default_config = resolveFile("WavePool/config.json", config_folders);
     get<parameters::config_file>() = default_config.string();
   }catch(...){
     std::cout << "Could not find default configuration" << std::endl;
@@ -250,6 +290,8 @@ bool arguments::cmd::init(bool console, int argc, char *argv[]) {
     snapFile = resolveFile(vm["snap"].as<std::string>(), config_folders).string();
     snapped = true;
   }
+  //snapFile = resolveFile(R"(C:\Users\Winchenbach\adaptive\splash_001\frame_300.dump)", config_folders).string();
+  //snapped = true;
 
   if (vm.count("config")) {
     get<parameters::config_file>() = resolveFile(vm["config"].as<std::string>(), config_folders).string();
@@ -353,12 +395,12 @@ void arguments::cmd::finalize() {
     for (const auto &t : t_data) {
       std::cout << std::setw(max_len + 3) << t.name;
       std::cout << " ";
-      std::cout << boost::format("%8.2f") % t.average;
-      std::cout << boost::format("%8.2f") % t.median;
-      std::cout << boost::format("%8.2f") % t.min;
-      std::cout << boost::format("%8.2f") % t.max;
-      std::cout << boost::format("%8.2f") % t.dev;
-      std::cout << boost::format("%8.2f") % ((t.total / frame_time) * 100.0);
+      std::cout << formatFloat(t.average);
+      std::cout << formatFloat(t.median);
+      std::cout << formatFloat(t.min);
+      std::cout << formatFloat(t.max);
+      std::cout << formatFloat(t.dev);
+      std::cout << formatFloat(((t.total / frame_time) * 100.0));
       std::chrono::duration<double, std::milli> dur(t.total);
       auto seconds = std::chrono::duration_cast<std::chrono::seconds>(dur);
       auto minutes = std::chrono::duration_cast<std::chrono::minutes>(dur);
@@ -366,9 +408,10 @@ void arguments::cmd::finalize() {
       auto ms = static_cast<int32_t>(remainder);
       auto s = seconds.count() - minutes.count() * 60;
       std::cout << "\t";
-      std::cout << boost::format("%i:%02i.%03i") % minutes.count() % s % ms;
+	  std::cout << minutes.count() << ":" << std::setfill('0') << std::setw(2) << s << ":" << std::setfill('0') << std::setw(3) << ms << std::setfill(' ') <<std::endl;
+      //std::cout << boost::format("%i:%02i.%03i") % minutes.count() % s % ms;
 
-      std::cout << std::endl;
+      //std::cout << std::endl;
     }
   }
   if (vm.count("config_log")) {
@@ -415,6 +458,7 @@ void arguments::cmd::finalize() {
     size_t total = 0;
 	size_t total_fixed = 0;
 	size_t total_dynamic = 0;
+	std::sort(mem_info.begin(), mem_info.end(), [](const auto& lhs, const auto& rhs) { return lhs.allocSize < rhs.allocSize; });
     for (const auto &t : mem_info) {
       if (vm.count("memory")) {
         std::cout << std::setw(longest_name + 3) << t.name;
@@ -451,7 +495,8 @@ void arguments::cmd::finalize() {
     auto ms = milliseconds.count() - seconds.count() * 1000;
     auto s = seconds.count() - minutes.count() * 60;
     std::cout << "Total time:               ";
-    std::cout << boost::format("%i:%02i.%03i") % minutes.count() % s % ms;
+    //std::cout << boost::format("%i:%02i.%03i") % minutes.count() % s % ms;
+	std::cout << minutes.count() << ":" << std::setfill('0') << std::setw(2) << s << ":" <<std::setw(3) << std::setfill('0') << ms;
     std::cout << std::endl;
     std::cout << "Number of particles:      "
               << IO::config::numberToString(get<parameters::num_ptcls>()) << " of "

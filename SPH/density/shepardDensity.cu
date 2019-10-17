@@ -10,41 +10,40 @@
 	checkedParticleIdx(i);
 	cache_arrays((pos, position), (vol, volume));	 
 
-	auto unit_density = SWH::spline4(pos[i], arrays);
-	auto shepFilter = SWH::spline4(pos[i], arrays);
-	iterateNeighbors(j){
-	  unit_density += vol[j] * W_ij;
-	  shepFilter += arrays.volume[j] / arrays.density.first[j] * W_ij;
-	}
-	
-	arrays.density.second[i] = unit_density / shepFilter;
+	//auto unit_density = SWH::spline(pos[i], arrays);
+	//auto shepFilter = SWH::spline(pos[i], arrays);
+	//iterateNeighbors(j){
+	//  unit_density += vol[j] * W_ij;
+	//  shepFilter += arrays.volume[j] / arrays.density.first[j] * W_ij;
+	//}
+	//
+	//arrays.density.second[i] = unit_density / shepFilter;
 }
 
 neighFunctionType estimate_density(SPH::shepardDensity::Memory arrays) {
-	checkedParticleIdx(i);
-	cache_arrays((pos, position), (vol, volume));	 
+	//checkedParticleIdx(i);
+	//cache_arrays((pos, position), (vol, volume));	 
 
-	auto unit_density = SWH::spline4(pos[i], arrays);
-	iterateNeighbors(j){
-	  unit_density += vol[j] * W_ij;
-	}
-	
-	arrays.density.first[i] = unit_density;
+	//auto unit_density = SWH::spline(pos[i], arrays);
+	//iterateNeighbors(j){
+	//  unit_density += vol[j] * W_ij;
+	//}
+	//
+	//arrays.density.first[i] = unit_density;
 }
 
 neighFunctionType update_density(SPH::shepardDensity::Memory arrays) {
 	checkedParticleIdx(i);
 	cache_arrays((pos, position), (vol, volume));	 
 
-	auto V_i = basicVolume;
-	auto boundaryKernel = SWH::spikyGradient(pos[i], V_i, arrays);
-	auto rho_star = arrays.density.first[i] + arrays.timestep * V_i * math::dot3(arrays.velocity[i], boundaryKernel);
+	//auto boundaryKernel = SWH::spikyGradient(pos[i], arrays);
+	//auto rho_star = arrays.density.first[i] + arrays.timestep * math::dot3(arrays.velocity[i], boundaryKernel);
 
-	iterateNeighbors(j) {
-		auto spikyGradient = GW_ij;
-		rho_star = rho_star + arrays.timestep * vol[j] * math::dot3(arrays.velocity[i] - arrays.velocity[j], spikyGradient);
-	}
-	arrays.density.second[i] = rho_star;
+	//iterateNeighbors(j) {
+	//	auto spikyGradient = GW_ij;
+	//	rho_star = rho_star + arrays.timestep * vol[j] * math::dot3(arrays.velocity[i] - arrays.velocity[j], spikyGradient);
+	//}
+	//arrays.density.second[i] = rho_star;
 }
 
 

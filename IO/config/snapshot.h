@@ -5,6 +5,7 @@
 #include <utility/identifier.h>
 #include <utility/cuda/memory.h>
 #include <vector>
+#include <utility/bullet/DynamicsWorld.h>
 
 namespace IO {
 namespace config {
@@ -52,6 +53,66 @@ template <typename Ty> struct ArraySnap : public SnapShot {
       free(last_ptr);
     last_ptr = nullptr;
     allocSize = 0;
+  }
+};
+
+struct RigidSnap : public SnapShot {
+  
+  std::vector<btTransform> trans;
+  std::vector<btVector3> vel;
+  std::vector<btVector3> avel;
+  std::vector<btQuaternion> rquat;
+
+  virtual void load() override {
+    auto wrld = DynamicsWorld::getInstance();
+    auto rgds = wrld->getRigids();
+    auto cnt = wrld->getRigidBodiesCount();
+
+    for (int i = 0; i < cnt; i++)
+    {
+      auto vl = vel[i];
+      auto avl = avel[i];
+      auto tr = trans[i];
+      auto rqt = rquat[i];
+      std::cout << "load: " << tr.getOrigin().getX() << " " << tr.getOrigin().getY() << " " << tr.getOrigin().getZ() << std::endl;
+      
+      auto rg = rgds[i];
+      btRigidBody* body = btRigidBody::upcast(rg);
+      body->setLinearVelocity(vl);
+      body->setAngularVelocity(avl);
+
+      body->setCenterOfMassTransform(tr);
+      body->clearForces();
+      
+      auto orig = tr.getOrigin();
+      wrld->rigid_origins.at(i) = {(float)orig.getX(), (float)orig.getY(), (float)orig.getZ(), 0};
+      wrld->rigid_quaternion.at(i) = rqt;
+    }
+  }
+  virtual void save() override {
+    trans.clear();
+    vel.clear();
+    avel.clear();
+    rquat.clear();
+    auto wrld = DynamicsWorld::getInstance();
+    auto rgds = wrld->getRigids();
+    auto cnt = wrld->getRigidBodiesCount();
+
+    for (int i = 0; i < cnt; i++)
+    {
+      auto rg = rgds[i];
+      btRigidBody* body = btRigidBody::upcast(rg);
+      vel.push_back(body->getLinearVelocity());
+      avel.push_back(body->getAngularVelocity());
+      auto tr = body->getCenterOfMassTransform();
+      trans.push_back(tr);
+      rquat.push_back(wrld->rigid_quaternion.at(i));
+      std::cout << "save: " << tr.getOrigin().getX() << " " << tr.getOrigin().getY() << " " << tr.getOrigin().getZ() << std::endl;
+    }
+
+  }
+  virtual void clear() override {
+    
   }
 };
 

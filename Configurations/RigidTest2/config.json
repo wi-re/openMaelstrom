@@ -1,0 +1,275 @@
+{
+  "modules": {
+    "alembic": true,
+    "pressure": "DFSPH",
+    "volumeBoundary": true,
+    "adaptive": false,
+    "rayTracing": true,
+    "anisotropicSurface": true,
+    "surfaceDetection": true,
+    "drag": "Gissler17",
+    "vorticity": "Bender17",
+    "tension": "Akinci",
+    "resorting": "compactMLM",
+    "support": "constrained",
+    "neighborhood": "constrained"
+  },
+  "simulation_settings": {
+    "densitySteps": 5,
+    "boundaryObject": "Objects/domain.obj",
+    "domainWall": "xyz+",
+    "domainWalls": "x+-y+-z-",
+    "numptcls": 3601000,
+    "auto_boundary": "true",
+    "boundaryDampening": 0.999,
+    "timestep_min": 0.001,
+    "timestep_max": 0.006,
+    "neighborlimit": 125,
+    "external_force": "0 0 -9.8 0"
+  },
+  "vorticitySettingss": {
+    "intertiaInverse": 0.5,
+    "viscosityOmega": 0.1,
+    "vorticityCoeff": 0.35
+  },
+  "particle_settings": {
+    "viscosity": 5,
+    "boundaryViscosity": 0.0375,
+    "tension_akinci": 0.15,
+    "rigidAdhesion_akinci": 0.0,
+    "boundaryAdhesion_akinci": 0.0,
+    "tension": 0.1,
+    "gravity": 9.81,
+    "radius1": 0.6203504908994,
+    "radius": 0.75,
+    "density": 998,
+    "air_velocity": "0 0 0"
+  },
+  "surfaceDistance": {
+    "distanceFieldDistances": "0 0 2",
+    "level_limit": "-15.f"
+  },
+  "adaptive": {
+    "resolution": 64,
+    "distance": "4.0 4.0 2.0",
+    "delay": 1.75,
+    "blendsteps": 15,
+    "limit": -20.0,
+    "useVolume": 1,
+    "adaptivityThrseshold": -0.15
+  },
+  "alembics": {
+    "fps": 24
+  },
+  "color_map_MLM": {
+    "auto": 0,
+    "buffer": "MLMResolution",
+    "min": 0,
+    "max": 3,
+    "map": "RdYlBu",
+    "map_flipped": 1,
+    "mapping_mode": "linear"
+  },
+  "color_map": {
+    "auto": 0,
+    "buffer": "velocity",
+    "min": 0,
+    "max": 30,
+    "visualizeDirection": 0,      
+    "map": "magma",
+    "map_flipped": 0,
+    "mapping_mode": "linear"
+  },
+  "color_maps": {
+    "auto": 1,
+    "buffer": "neighborListLength",
+    "min": 0,
+    "max": 35,
+    "map": "inferno",
+    "map_flipped": 1,
+    "mapping_mode": "linear"
+  },
+  "inlet_volumess": {
+    "volume1": {
+      "file": "Volumes/Adaptive.vdb",
+      "dur": 900,
+      "delay": 0.0,
+      "vel": "0 -30 0 0"
+    }
+  },
+  "particleSetss": {
+    "sets2": "particlesA.set",
+    "set1": "particlesB.set"
+  },
+  "particle_volumes": {
+    "volumes1": {
+      "file": "Volumes/FluidS.vdb",
+      "concentration": 0.0,
+      "timeToEmit": 0.0,
+      "kind": "vdb"
+    },
+    "volume1": {
+      "file": "Volumes/FluidB.vdb",
+      "concentration": 0.0,
+      "timeToEmit": 0.0,
+      "kind": "vdb"
+    }
+  },
+  "boundary_volumes": {
+    "volume1": {
+      "file": "Volumes/Propellor.vdb",
+      "position": "0 0 0",
+      "angle": "0 0 0",
+      "kind": 1,
+      "density": "998"
+    }
+  },
+  "boundary_volumess": {
+    "volume1": {
+      "file": "Volumes/Ground.vdb",
+      "position": "-75 0 -20",
+      "angle": "0 0 0",
+      "kind": 1,
+      "angularVelocity": "0 0 0 0",
+      "velocity": "0 0 0",
+      "density": "998"
+    }
+  },
+  "boundary_volumes2": {
+    "volume1": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 -20 5",
+      "density": "998"
+    },
+    "volume2": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 -6.667 5",
+      "density": "998"
+    },
+    "volume3": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 6.667 5",
+      "density": "998"
+    },
+    "volume4": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 20 5",
+      "density": "998"
+    },
+    "volume5": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 0 15.1",
+      "density": "998"
+    },
+    "volume6": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 13.336 15.1",
+      "density": "998"
+    },
+    "volume7": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 -13.336 15.1",
+      "density": "998"
+    },
+    "volume8": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 6.6667 25.2",
+      "density": "998"
+    },
+    "volume9": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 -6.6667 25.2",
+      "density": "998"
+    },
+    "volume10": {
+      "file": "Volumes/box3.vdb",
+      "position": "0 0 35.3",
+      "density": "998"
+    }
+  },
+  "rtxScene": {
+    "box1": {
+      "maxPosition": "FLT_MAX FLT_MAX -0.5",
+      "minPosition": "-FLT_MAX -FLT_MAX -5",
+      "emission": "0.0 0.0 0.0",
+      "color": "0.15 0.15 0.15",
+      "material": 0
+    },
+    "box2": {
+      "maxPosition": "116 192 192",
+      "minPosition": "-90 -30 -192",
+      "emission": "0.8 0.8 0.8",
+      "color": "1 1 1",
+      "material": 0
+    },
+    "sphere1": {
+      "position": "0 0 -100060",
+      "radius": "10000",
+      "emission": "0.55 0.55 0.55",
+      "color": "0.075 0.075 0.075",
+      "material": 0
+    }
+  },
+  "render_settings": {
+    "vrtxWmin": 0.586,
+    "vrtxR": 0.08,
+    "anisotropicKs": 1.0,
+    "anisotropicKr": 4.158416,
+    "anisotropicKn": 0.278607,
+    "anisotropicLambda": 0.980198,
+    "anisotropicNepsilon": "24",
+    "apertureRadius": "0.f",
+    "vrtxFluidBias": "0.025f",
+    "focalDistance": "120.f",
+    "vrtxRenderFluid": "1",
+    "vrtxRenderGrid": "0",
+    "vrtxRenderSurface": "0",
+    "vrtxNeighborLimit": 0,
+    "vrtxRenderNormals": "0",
+    "renderSteps": 26,
+    "bvhColor": "0.566 0.621 0.641",
+    "floorRender": 1,
+    "vrtxBHVMaterial": "0",
+    "vrtxRenderBVH": "1",
+    "vrtxRenderMode": "0",
+    "vrtxDisplayStats": "1",
+    "vrtxMaterialg": "4",
+    "vrtxBouncesg": "10",
+    "vrtxMaterial": "0",
+    "vrtxBounces": "10",
+    "vrtxDebeerScale": "0.056",
+
+    "vrtxDomainEpsilon": "-1.25",
+    "vrtxBVHMaterial": "1",
+    "vrtxFluidColor3": "0.31 0.448 0.897",
+    "vrtxFluidColor": "0.897 0.917 1",
+    "vrtxFluidColor2": "0.05098 0.23137 0.494177",
+    "vrtxIOR": "1.3f",
+    "internalLimit": 40.0,
+    "camera_positionF": "124.414 -135.644 53.6789",
+    "camera_angleF": "158.5 0 683.5",
+
+    "camera_positiond": "81.5568 123.431 103.756",
+    "camera_angled": "157.5 0 562.5",
+    "camera_position_side": "13.5 124.5 55",
+    "camera_angle_side": "180 0 -180",
+
+    "camera_position": "13.5 127 56.5",
+    "camera_angle": "180 0 -180",
+
+    "camera_positiona": "14.9116 58.4819 115.586",
+    "camera_anglea": "135 0 -180",
+
+    "camera_positionm": "10.6954 -35.994 34.2662",
+    "camera_anglem": "144.5 0 -332.5",
+
+    "camera_positionr": "103.013 52.7945 60.01",
+    "camera_angler": "157 0 -142",
+    "camera_positionp": "115.394 63.4666 86.1723",
+    "camera_anglep": "153.5 0 579",
+    "resolution": "1920 1080",
+    "render_clamp": "0 0 0",
+    "camera_fps": 60,
+    "gl_file": "adapt_break2.mp4"
+  }
+}

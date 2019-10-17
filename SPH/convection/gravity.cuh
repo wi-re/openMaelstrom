@@ -13,6 +13,8 @@ namespace SPH{
 			parameter_u<parameters::rest_density> rest_density;
 			parameter_u<parameters::max_numptcls> max_numptcls;
 
+			write_array_u<arrays::debugArray> debugArray;
+
 			// parameters
 			parameter_u<parameters::external_force> external_force;
 

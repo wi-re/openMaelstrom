@@ -5,5 +5,6 @@
 namespace IO {
 namespace vdb {
 void emitParticleVolumes();
+void recreateRigids();
 } // namespace vdb
 } // namespace IO

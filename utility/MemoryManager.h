@@ -16,5 +16,5 @@
 #include <utility/memory/functions.h>
 #include <utility/memory/simulation_wrap.h>
 
-HAS_STATIC_MEMBER(rear_ptr);
+//HAS_STATIC_MEMBER(rear_ptr);
 

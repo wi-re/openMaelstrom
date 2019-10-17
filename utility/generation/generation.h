@@ -32,5 +32,7 @@ obj_tuple fileToObj(fs::path path);
 // The fileName argument is parsed through resolveFiles with the configuration directory added.
 std::vector<vdb::Vec4f> generateParticles(std::string fileName, float r, genTechnique kind = genTechnique::hex_grid,
                                               bool clampToDomain = false);
+std::vector<vdb::Vec4f> generateParticlesRigid(std::string fileName, float r, genTechnique kind = genTechnique::hex_grid,
+                                              bool clampToDomain = false, std::map<std::string, float3> maxmin = {});
 
 } // namespace generation 

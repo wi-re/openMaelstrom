@@ -9,12 +9,12 @@
 basicFunctionType initializeSupport(SPH::ConstrainedNeighborList::Memory arrays) {
 	checkedParticleIdx(i);
 	auto x_i = arrays.position[i];
-	auto h_i = support_h(x_i);
+	auto h_i = support_h(x_i); 
 	if (h_i == FLT_MAX)
 		return;
 	auto V_i = arrays.volume[i];
 	float targetNeighbors = kernelNeighbors() * 0.95f;
-	auto h_c = support_from_volume(V_i);
+	auto h_c = support_from_volume(V_i); 
 	h_i = arrays.omega * h_i + (1.f - arrays.omega) * h_c;
 	h_i = math::clamp(h_i, 0.0_m, h_c);
 
@@ -177,6 +177,11 @@ basicFunctionType finalize_neighborhood(SPH::ConstrainedNeighborList::Memory arr
 	math::unit_assign<4>(arrays.position[i], h_s);
 	arrays.supportEstimate[i] = arrays.support[i];
 	arrays.support[i] -= h_i;
+#ifdef DEBUG_INVALID_PTCLS
+	if (arrays.neighborListLength[i] == 0) {
+		printf("%d has 0 neighbors [%f %f %f %f] -> %f : %f : %f\n", i, x_i.val.x, x_i.val.y, x_i.val.z, x_i.val.w, arrays.support[i].val, arrays.supportEstimate[i].val, arrays.volume[i].val);
+	}
+#endif
 }
 
 // This function updates the support radius of all particles by calculating a new one based on the
@@ -219,6 +224,11 @@ cellFunctionType basic_neighborhood(SPH::ConstrainedNeighborList::Memory arrays)
 		}
 	}
 	arrays.neighborListLength[i] = curNeighborIdx;
+#ifdef DEBUG_INVALID_PTCLS
+	if (arrays.neighborListLength[i] == 0) {
+		printf("%d has 0 neighbors [%f %f %f %f] -> %f : %f : %f\n", i, x_i.val.x, x_i.val.y, x_i.val.z, x_i.val.w, arrays.support[i].val, arrays.supportEstimate[i].val, arrays.volume[i].val);
+	}
+#endif
 }
 
 basicFunction(initBasic, initSupport, "Neighborhood: C init");
@@ -248,7 +258,7 @@ void SPH::ConstrainedNeighborList::calculate_neighborlist(Memory mem) {
     cuda::arrayMemset<arrays::neighborOverheadCount>(0x0000);
     cuda::arrayMemset<arrays::neighborOverhead>(0xFFFFFFFF);
   };
-  if (*parameters::support::ptr == "constrained") {
+  if (*parameters::modules::support::ptr == "constrained") {
     launch<initBasic>(mem.num_ptcls, mem);
     resetArrays();
 	launch<basicNeighborlist>(mem.num_ptcls, mem);

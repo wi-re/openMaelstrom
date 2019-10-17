@@ -1,7 +1,7 @@
 #pragma once
 #include <utility/launcher.h>
 #include <utility/macro.h>
-#define iterateNeighbors(var) for (const auto& var : neighbor_span<neighborhood>(i, arrays))
+#define iterateNeighbors(var) for (const auto& var : neighbor_iterate_wrapper(i, arrays, false, neigh_tag_ty<neighborhood>{}))
 #define iterateCells(position,var) for (const auto& var : cell_iterate<hash_width, order, structure>( position, arrays))
 #define iterateAllCells(position,var) for (const auto& var : cell_iterate<hash_width, order, structure>( position, arrays, true))
 #define iterateBoundaryPlanes(var) for (const auto& var : boundaryPlanes(arrays))
@@ -40,11 +40,23 @@
           std::function<void(Ts...)>{}, __LINE__, __FILE__, __VA_ARGS__);                          \
       launcher.TEMPLATE_TOKEN operator()<cfg>(threads, std::forward<Ts>(args)...);                                \
     }                                                                                              \
+    template <typename... Ts> static void launch(int2 threads, Ts &&... args) {                 \
+      static auto launcher = get_FunctionLauncher<config>(                                         \
+          [] kind(Ts... args) { x<hash_width, order, structure, Vs...>(args...); },                \
+          std::function<void(Ts...)>{}, __LINE__, __FILE__, __VA_ARGS__);                          \
+      launcher.TEMPLATE_TOKEN operator()<cfg>(threads, std::forward<Ts>(args)...);                                \
+    }                                                                                              \
   };
 
 #define INTERNAL_MACRO_NEIGH_FUNCTION(config, kind, name, x, ...)                                  \
   template <launch_config cfg, neighbor_list neighborhood, typename... Vs> struct name {           \
     template <typename... Ts> static void launch(int32_t threads, Ts &&... args) {                 \
+      static auto launcher = get_FunctionLauncher<config>(                                         \
+          [] kind(Ts... args) { x<neighborhood, Vs...>(args...); }, std::function<void(Ts...)>{},  \
+          __LINE__, __FILE__, __VA_ARGS__);                                                        \
+      launcher.TEMPLATE_TOKEN operator()<cfg>(threads, std::forward<Ts>(args)...);                                \
+    }                                                                                              \
+    template <typename... Ts> static void launch(int2 threads, Ts &&... args) {                 \
       static auto launcher = get_FunctionLauncher<config>(                                         \
           [] kind(Ts... args) { x<neighborhood, Vs...>(args...); }, std::function<void(Ts...)>{},  \
           __LINE__, __FILE__, __VA_ARGS__);                                                        \
@@ -61,11 +73,24 @@
           __FILE__, __VA_ARGS__);                                                                  \
       launcher.TEMPLATE_TOKEN operator()<cfg>(threads, std::forward<Ts>(args)...);                                \
     }                                                                                              \
+    template <typename... Ts>                                                                      \
+    static void launch(int2 threads, Ts &&... args) {                        \
+      static auto launcher = get_FunctionLauncher<config>(                                         \
+          [] kind(Ts... args) { x<Vs...>(args...); }, std::function<void(Ts...)>{}, __LINE__,      \
+          __FILE__, __VA_ARGS__);                                                                  \
+      launcher.TEMPLATE_TOKEN operator()<cfg>(threads, std::forward<Ts>(args)...);                                \
+    }                                                                                              \
   };
 
 #define INTERNAL_MACRO_GLOBAL_FUNCTION(config, kind, name, x, ...)                                 \
   template <launch_config cfg> struct name {                                                       \
     template <typename... Ts> static void launch(int32_t threads, Ts &&... args) {                 \
+      static auto launcher = get_FunctionLauncher<config>([] kind(Ts... args) { x(args...); },     \
+                                                          std::function<void(Ts...)>{}, __LINE__,  \
+                                                          __FILE__, __VA_ARGS__);                  \
+      launcher.TEMPLATE_TOKEN operator()<cfg>(threads, std::forward<Ts>(args)...);                                \
+    }                                                                                              \
+    template <typename... Ts> static void launch(int2 threads, Ts &&... args) {                 \
       static auto launcher = get_FunctionLauncher<config>([] kind(Ts... args) { x(args...); },     \
                                                           std::function<void(Ts...)>{}, __LINE__,  \
                                                           __FILE__, __VA_ARGS__);                  \

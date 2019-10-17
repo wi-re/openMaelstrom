@@ -11,7 +11,7 @@
       "functions": [ "clusterParticles" ],
       "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size" ],
       "input": [ "position" ],
-      "output": [ "classification" ]
+      "output": [ "structureArrays::classification" ]
     },
     "resort": {
       "description": "Module used to implement a simple resorting algorithm that uses a cell entry for every actual cell in the domain. Does not support infinite domains.",
@@ -23,7 +23,7 @@
       "units": true,
       "functions": [ "resortParticles" ],
       "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size" ],
-      "depends_any": [ { "sorting": "linear_cell" } ],
+      "depends_any": [ { "modules::sorting": "linear_cell" } ],
       "input": [ "position" ],
       "output": [ "cellBegin", "cellEnd", "resortIndex", "particleparticleIndex" ]
     },
@@ -38,12 +38,29 @@
       "functions": [ "resortParticles" ],
       "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size", "resort_algorithm", "hash_entries", "min_coord" ],
       "depends_any": [
-        { "sorting": "MLM" },
-        { "sorting": "hashed_cell" }
+        { "modules::sorting": "MLM" },
+        { "modules::sorting": "hashed_cell" }
       ],
       "input": [ "position" ],
       "temporary": [ "resortIndex", "particleparticleIndex", "ZOrder_64", "ZOrder_32", "cellSpanSwap", "cellparticleIndex", "compactparticleIndex", "resortArray", "resortArray4" ],
       "output": [ "cellSpan", "hashMap", "MLMResolution" ]
+    },
+    "compactMLM": {
+      "description": "Module used to implement a compact hashing style resorting algorithm on GPUs with 64 bit indices, limiting the domain to 2,097,152^3 cells. Additionally implements a multi level scheme that creates multiplle hash tables for a much faster adaptive simulaiton.",
+      "folder": "compactMLMResort",
+      "name": "compactMLM",
+      "cell_info": true,
+      "neighbor_info": false,
+      "resort": true,
+      "units": false,
+      "functions": [ "resortParticles" ],
+      "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size", "resort_algorithm", "hash_entries", "min_coord" ],
+      "depends_any": [
+        { "modules::sorting": "compactMLM" }
+      ],
+      "input": [ "position" ],
+      "temporary": [ "resortIndex", "particleparticleIndex", "ZOrder_64", "ZOrder_32", "compactCellSpanSwap", "cellparticleIndex", "compactparticleIndex", "resortArray", "resortArray4" ],
+      "output": [ "compactCellSpan", "compactHashMap", "MLMResolution" ]
     }
   },
   "arrays":{
@@ -65,8 +82,9 @@
         "type": "int64_t",
         "unit": "none",
         "depends_any": [
-          { "sorting": "hashed_cell" },
-          { "sorting": "MLM" }
+          { "modules::sorting": "hashed_cell" },
+          { "modules::sorting": "MLM" },
+          { "modules::sorting": "compactMLM" }
         ],
         "kind": "particleData"
       },
@@ -75,8 +93,9 @@
         "type": "int32_t",
         "unit": "none",
         "depends_any": [
-          { "sorting": "hashed_cell" },
-          { "sorting": "MLM" }
+          { "modules::sorting": "hashed_cell" },
+          { "modules::sorting": "MLM" },
+          { "modules::sorting": "compactMLM" }
         ],
         "kind": "particleData"
       },
@@ -85,8 +104,8 @@
         "type": "cell_span",
         "unit": "none",
         "depends_any": [
-          { "sorting": "hashed_cell" },
-          { "sorting": "MLM" }
+          { "modules::sorting": "hashed_cell" },
+          { "modules::sorting": "MLM" }
         ],
         "kind": "particleData",
         "size": 1
@@ -96,8 +115,28 @@
         "type": "cell_span",
         "unit": "none",
         "depends_any": [
-          { "sorting": "hashed_cell" },
-          { "sorting": "MLM" }
+          { "modules::sorting": "hashed_cell" },
+          { "modules::sorting": "MLM" }
+        ],
+        "kind": "particleData",
+        "size": "get<parameters::mlm_schemes>()"
+      },
+      "compactCellSpanSwap": {
+        "description": "Stores information about used cells with one entry per particle. Cell Spans consist of a .beginning and .length entry that can be used to iterate over the particles within a cell. For MLM cellSpan is used as a temporary array only.",
+        "type": "compact_cellSpan",
+        "unit": "none",
+        "depends_any": [
+          { "modules::sorting": "compactMLM" }
+        ],
+        "kind": "particleData",
+        "size": 1
+      },
+      "compactCellSpan": {
+        "description": "Same functionality as cellSpan but is allocated to a multiple of the particle count based on the mlm scheme count.",
+        "type": "compact_cellSpan",
+        "unit": "none",
+        "depends_any": [
+          { "modules::sorting": "compactMLM" }
         ],
         "kind": "particleData",
         "size": "get<parameters::mlm_schemes>()"
@@ -107,8 +146,9 @@
         "type": "int32_t",
         "unit": "none",
         "depends_any": [
-          { "sorting": "hashed_cell" },
-          { "sorting": "MLM" }
+          { "modules::sorting": "hashed_cell" },
+          { "modules::sorting": "MLM" },
+          { "modules::sorting": "compactMLM" }
         ],
         "kind": "particleData"
       },
@@ -117,8 +157,9 @@
         "type": "int32_t",
         "unit": "none",
         "depends_any": [
-          { "sorting": "hashed_cell" },
-          { "sorting": "MLM" }
+          { "modules::sorting": "hashed_cell" },
+          { "modules::sorting": "MLM" },
+          { "modules::sorting": "compactMLM" }
         ],
         "kind": "particleData"
       },
@@ -127,8 +168,9 @@
         "type": "int32_t",
         "unit": "none",
         "depends_any": [
-          { "sorting": "hashed_cell" },
-          { "sorting": "MLM" }
+          { "modules::sorting": "hashed_cell" },
+          { "modules::sorting": "MLM" },
+          { "modules::sorting": "compactMLM" }
         ],
         "kind": "particleData"
       },
@@ -137,11 +179,31 @@
         "type": "hash_span",
         "unit": "none",
         "depends_any": [
-          { "sorting": "MLM" },
-          { "sorting": "hashed_cell" }
+          { "modules::sorting": "MLM" },
+          { "modules::sorting": "hashed_cell" }
         ],
         "kind": "singleData",
         "size": "get<parameters::mlm_schemes>() * get<parameters::hash_entries>()"
+      },
+      "compactHashMap": {
+        "description": "Similar to cellSpan, however: hashMap is not used by MLM sorting at all.",
+        "type": "compactHashSpan",
+        "unit": "none",
+        "depends_any": [
+          { "modules::sorting": "compactMLM" }
+        ],
+        "kind": "singleData",
+        "size": "get<parameters::mlm_schemes>() * get<parameters::hash_entries>()"
+      },
+      "mlmScaling": {
+        "description": "Similar to cellSpan, however: hashMap is not used by MLM sorting at all.",
+        "type": "int32_t",
+        "unit": "none",
+        "depends_any": [
+          { "modules::sorting": "compactMLM" }
+        ],
+        "kind": "singleData",
+        "size": "1"
       },
       "particleparticleIndex": {
         "description": "Used for creating indices from 0:n for resorting with key-value sorting algorithms.",
@@ -153,17 +215,17 @@
         "description": "Contains the first particle that is contained within a cell. This is as large as the domain as no compacting is done here. If the entry is -1 then there are no particles in this cell.",
         "type": "int32_t",
         "unit": "none",
-        "depends_any": [ { "sorting": "linear_cell" } ],
+        "depends_any": [ { "modules::sorting": "linear_cell" } ],
         "kind": "cellData"
       },
       "cellEnd": {
         "description": "Similalr to cellBegin. Contains the last particle that is contained within a cell.",
         "type": "int32_t",
         "unit": "none",
-        "depends_any": [ { "sorting": "linear_cell" } ],
+        "depends_any": [ { "modules::sorting": "linear_cell" } ],
         "kind": "cellData"
       }
-    }
+    } 
   },
   "uniforms":{
     "modules":{
@@ -206,7 +268,7 @@
       },
       "regex_cfg": {
         "identifier": "regex_cfg",
-        "name": "Used to select where the code should be run. Valid options are: gpu (runs almost everything on the gpu), cpu (runs almost everything on the cpu) and debug (same as cpu but single threaded).",
+        "description": "Used to select where the code should be run. Valid options are: gpu (runs almost everything on the gpu), cpu (runs almost everything on the cpu) and debug (same as cpu but single threaded).",
         "type": "bool",
         "default": false,
         "const": false,
@@ -214,6 +276,20 @@
       }
     },
     "resort": {
+      "auxCells": {
+        "identifier": "auxCells",
+        "name": "Internal value to keep track of the sorting algorithm being used, deprecated.",
+        "type": "int",
+        "unit": "none",
+        "default": "0"
+      },
+      "auxCollisions": {
+        "identifier": "auxCollisions",
+        "name": "Internal value to keep track of the sorting algorithm being used, deprecated.",
+        "type": "int",
+        "unit": "none",
+        "default": "0"
+      },
       "algorithm": {
         "identifier": "resort_algorithm",
         "name": "Internal value to keep track of the sorting algorithm being used, deprecated.",
@@ -228,12 +304,25 @@
         "unit": "none",
         "default": "0"
       },
+      "zOrderScale": {
+        "identifier": "zOrderScale",
+        "name": "Value that represents the number of occupied hash cells (on all hash levels)",
+        "type": "float",
+        "unit": "none",
+        "default": "1.f"
+      },
       "collision_cells": {
         "identifier": "collision_cells",
         "name": "Value that represents the number of hash cells that contain collisions (on all hash levels)",
         "type": "int",
         "unit": "none",
         "default": "0"
+      },
+      "occupiedCells": {
+        "identifier": "occupiedCells",
+        "name": "Value that represents the number of hash cells that contain collisions (on all hash levels)",
+        "type": "std::vector<int32_t>",
+        "unit": "none"
       }
     },
     "alembic": {

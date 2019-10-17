@@ -47,7 +47,7 @@ basicFunctionDevice(deleteParticles, delete_particles, "Delete Particles");
 void SPH::Outlet::remove(Memory mem) {
   static std::vector<float> old_rates;
   std::vector<float> rates;
-  for(auto vol : get<parameters::outlet_volumes>()){
+  for(auto vol : get<parameters::outletVolumes>()){
     rates.push_back(vol.flowRate.value);
   }
   if(rates.size() != old_rates.size() || rates != old_rates){

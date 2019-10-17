@@ -1,10 +1,12 @@
 #pragma once
-#include <QOpenGLFunctions_3_3_Core>
+#include <QOpenGLFunctions_4_5_Compatibility>
 #include <cuda_gl_interop.h>
 #include <cuda_runtime.h>
 #include <utility/cuda.h>
 #include <utility/identifier/arrays.h>
 #include <utility/identifier/uniform.h>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 #include <iostream>
 
 template <typename T> auto convertToQt(T) { return 0.f; };
@@ -91,13 +93,31 @@ template <typename Ty> struct gl_uniform : public gl_uniform_base {
     programs.emplace_back(prog, location);
   }
   virtual void add_uniform(QOpenGLShaderProgram *prog) {
-    auto identifier = prog->uniformLocation(Ty::variableName);
-    if (identifier == -1)
-      return;
+	std::string name = Ty::jsonName;
+	std::vector<std::string> SplitVec;
+	boost::algorithm::split(SplitVec, name, boost::algorithm::is_any_of("."), boost::algorithm::token_compress_on);
+	//std::cout << name << std::endl;
+	//for (auto s : SplitVec) {
+	//	std::cout << " " << s;
+	//}
+	//std::cout << std::endl;
+	auto identifier = prog->uniformLocation(SplitVec[1].c_str());
+	if (identifier == -1) {
+		auto identifier = prog->uniformLocation(name.c_str());
+		if (identifier == -1) {
+			std::replace(name.begin(), name.end(), '.', '_');
+			identifier = prog->uniformLocation(name.c_str());
+			if (identifier == -1)
+				return;
+			//std::cout << "Found " << name << std::endl;
+		}
+		programs.emplace_back(prog, identifier);
+		return;
+	}
     programs.emplace_back(prog, identifier);
   }
 };
-struct cuda_buffer_base : protected QOpenGLFunctions_3_3_Core {
+struct cuda_buffer_base : protected QOpenGLFunctions_4_5_Compatibility {
   cudaGraphicsResource *resource = nullptr;
   GLuint VBO = UINT_MAX;
 
@@ -182,7 +202,19 @@ struct cuda_buffer : public cuda_buffer_base{
     return attribute;
   }
   virtual GLint bind(QOpenGLShaderProgram *prog) {
-    auto attribute = prog->attributeLocation(info::variableName);
+	  std::string name = info::qualifiedName;
+	  std::vector<std::string> SplitVec;
+	  boost::algorithm::split(SplitVec, name, boost::algorithm::is_any_of("."), boost::algorithm::token_compress_on);
+	  auto attribute = prog->attributeLocation(SplitVec[1].c_str());
+	  if (attribute == -1) {
+		  attribute = prog->attributeLocation(name.c_str());
+		  if (attribute == -1) {
+			  return-1;
+		  }
+		  //programs.emplace_back(prog, attribute);
+		  //return;
+	  }
+    //auto attribute = prog->attributeLocation(info::variableName);
     if (attribute == -1)
       return -1;
     if (!initialized)

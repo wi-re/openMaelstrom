@@ -13,6 +13,8 @@ namespace SPH{
 			parameter<parameters::rest_density> rest_density;
 			parameter<parameters::max_numptcls> max_numptcls;
 
+			write_array<arrays::debugArray> debugArray;
+
 			// parameters
 			parameter<parameters::resort_algorithm> resort_algorithm;
 
@@ -47,6 +49,8 @@ namespace SPH{
 
 			const_array<arrays::cellBegin> cellBegin;
 			const_array<arrays::cellEnd> cellEnd;
+			const_array<arrays::compactHashMap> compactHashMap;
+			const_array<arrays::compactCellSpan> compactCellSpan;
 
 			// neighborhood resources (mapped as read only)
 			// virtual resources (mapped as read only)
@@ -58,7 +62,7 @@ namespace SPH{
 			using temporary_arrays = std::tuple<arrays::resortIndex, arrays::particleparticleIndex, arrays::ZOrder_64, arrays::ZOrder_32, arrays::cellSpanSwap, arrays::cellparticleIndex, arrays::compactparticleIndex, arrays::resortArray, arrays::resortArray4>;
 			using basic_info_params = std::tuple<parameters::num_ptcls, parameters::timestep, parameters::radius, parameters::rest_density, parameters::max_numptcls>;
 			using cell_info_params = std::tuple<parameters::grid_size, parameters::min_domain, parameters::max_domain, parameters::cell_size, parameters::hash_entries, parameters::min_coord, parameters::mlm_schemes>;
-			using cell_info_arrays = std::tuple<arrays::cellBegin, arrays::cellEnd>;
+			using cell_info_arrays = std::tuple<arrays::cellBegin, arrays::cellEnd, arrays::compactHashMap, arrays::compactCellSpan>;
 			using virtual_info_params = std::tuple<>;
 			using virtual_info_arrays = std::tuple<>;
 			using boundaryInfo_params = std::tuple<>;
@@ -72,8 +76,8 @@ constexpr static const bool inlet = false;
 		//valid checking function
 		inline bool valid(Memory){
 			bool condition = false;
-			condition = condition || get<parameters::sorting>() == "MLM";
-			condition = condition || get<parameters::sorting>() == "hashed_cell";
+			condition = condition || get<parameters::modules::sorting>() == "MLM";
+			condition = condition || get<parameters::modules::sorting>() == "hashed_cell";
 			return condition;
 		}
 		

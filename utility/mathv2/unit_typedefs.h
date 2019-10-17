@@ -40,9 +40,6 @@ using mol =
 using cd =
     SI::unit_ty<SI::Base::m<0>, SI::Base::kg<0>, SI::Base::s<0>, SI::Base::A<0>,
                 SI::Base::K<0>, SI::Base::mol<0>, SI::Base::cd<1>>;
-using cd =
-    SI::unit_ty<SI::Base::m<0>, SI::Base::kg<0>, SI::Base::s<0>, SI::Base::A<0>,
-                SI::Base::K<0>, SI::Base::mol<0>, SI::Base::cd<1>>;
 
 // named units except for lx (eqv to cd unit wise), rad (unitless) and sr
 // (unitless)
@@ -70,6 +67,46 @@ using volume = SI::combine<cubic<m>>;
 using density = SI::combine<kg, recip_3<m>>;
 using velocity = SI::combine<m, Hz>;
 using acceleration = SI::combine<velocity, Hz>;
+
+// helper base units for ease of use
+using m1 = multiply_ratios<m, ratio<1, 1>>;
+using m2 = multiply_ratios<m, ratio<2, 1>>;
+using m3 = multiply_ratios<m, ratio<3, 1>>;
+using m4 = multiply_ratios<m, ratio<4, 1>>;
+using m5 = multiply_ratios<m, ratio<5, 1>>;
+using m_1 = multiply_ratios<m, ratio<-1, 1>>;
+using m_2 = multiply_ratios<m, ratio<-2, 1>>;
+using m_3 = multiply_ratios<m, ratio<-3, 1>>;
+using m_4 = multiply_ratios<m, ratio<-4, 1>>;
+using m_5 = multiply_ratios<m, ratio<-5, 1>>;
+
+using kg1 = multiply_ratios<kg, ratio<1, 1>>;
+using kg2 = multiply_ratios<kg, ratio<2, 1>>;
+using kg3 = multiply_ratios<kg, ratio<3, 1>>;
+using kg4 = multiply_ratios<kg, ratio<4, 1>>;
+using kg5 = multiply_ratios<kg, ratio<5, 1>>;
+using kg_1 = multiply_ratios<kg, ratio<-1, 1>>;
+using kg_2 = multiply_ratios<kg, ratio<-2, 1>>;
+using kg_3 = multiply_ratios<kg, ratio<-3, 1>>;
+using kg_4 = multiply_ratios<kg, ratio<-4, 1>>;
+using kg_5 = multiply_ratios<kg, ratio<-5, 1>>;
+
+using s1 = multiply_ratios<s, ratio<1, 1>>;
+using s2 = multiply_ratios<s, ratio<2, 1>>;
+using s3 = multiply_ratios<s, ratio<3, 1>>;
+using s4 = multiply_ratios<s, ratio<4, 1>>;
+using s5 = multiply_ratios<s, ratio<5, 1>>;
+using s_1 = multiply_ratios<s, ratio<-1, 1>>;
+using s_2 = multiply_ratios<s, ratio<-2, 1>>;
+using s_3 = multiply_ratios<s, ratio<-3, 1>>;
+using s_4 = multiply_ratios<s, ratio<-4, 1>>;
+using s_5 = multiply_ratios<s, ratio<-5, 1>>;
+
+template<typename Ty, int32_t N = 1, int32_t M = 1>
+using exp = multiply_ratios<Ty, ratio<N, M>>;
+template<typename... Ts>
+using combine = derived_unit<Ts...>;
+
 } // namespace SI
 
 template <typename _unit = SI::unit_ty<>>
@@ -81,6 +118,15 @@ using float3_u = value_unit<float3, _unit>;
 template <typename _unit = SI::unit_ty<>>
 using float4_u = value_unit<float4, _unit>;
 
+template <typename... _unit>
+using uFloat = value_unit<float, SI::combine<_unit...>>;
+template <typename... _unit>
+using uFloat2 = value_unit<float2, SI::combine<_unit...>>;
+template <typename... _unit>
+using uFloat3 = value_unit<float3, SI::combine<_unit...>>;
+template <typename... _unit>
+using uFloat4 = value_unit<float4, SI::combine<_unit...>>;
+
 template <typename _unit = SI::unit_ty<>>
 using double_u = value_unit<double, _unit>;
 template <typename _unit = SI::unit_ty<>>
@@ -89,6 +135,15 @@ template <typename _unit = SI::unit_ty<>>
 using double3_u = value_unit<double3, _unit>;
 template <typename _unit = SI::unit_ty<>>
 using double4_u = value_unit<double4, _unit>;
+
+template <typename... _unit>
+using uDouble = value_unit<double, SI::combine<_unit...>>;
+template <typename... _unit>
+using uDouble2 = value_unit<double2, SI::combine<_unit...>>;
+template <typename... _unit>
+using uDouble3 = value_unit<double3, SI::combine<_unit...>>;
+template <typename... _unit>
+using uDouble4 = value_unit<double4, SI::combine<_unit...>>;
 
 template <typename _unit = SI::unit_ty<>> using int_u = value_unit<int, _unit>;
 template <typename _unit = SI::unit_ty<>> using int2_u = value_unit<int2, _unit>;

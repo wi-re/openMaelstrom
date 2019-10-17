@@ -169,7 +169,7 @@ namespace math {
 		constexpr float n = static_cast<float>(Ratio::num);
 		constexpr float d = static_cast<float>(Ratio::den);
 		constexpr float r = n / d;
-		return  math::pow(a.val, r);
+		return  math::pow(a, r);
 	}
 
 	template<int i, typename T, typename U>

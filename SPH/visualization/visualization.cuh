@@ -13,6 +13,8 @@ namespace SPH{
 			parameter<parameters::rest_density> rest_density;
 			parameter<parameters::max_numptcls> max_numptcls;
 
+			write_array<arrays::debugArray> debugArray;
+
 			// parameters
 
 			// temporary resources (mapped as read/write)
@@ -20,7 +22,7 @@ namespace SPH{
 			const_array<arrays::position> position;
 
 			// output resources (mapped as read/write)
-			write_array<arrays::renderIntensity> renderIntensity;
+			write_array<arrays::renderArray> renderArray;
 
 			// swap resources (mapped as read/write)
 			// cell resources (mapped as read only)
@@ -30,7 +32,7 @@ namespace SPH{
 			
 			using swap_arrays = std::tuple<>;
 			using input_arrays = std::tuple<arrays::position>;
-			using output_arrays = std::tuple<arrays::renderIntensity>;
+			using output_arrays = std::tuple<arrays::renderArray>;
 			using temporary_arrays = std::tuple<>;
 			using basic_info_params = std::tuple<parameters::num_ptcls, parameters::timestep, parameters::radius, parameters::rest_density, parameters::max_numptcls>;
 			using cell_info_params = std::tuple<>;

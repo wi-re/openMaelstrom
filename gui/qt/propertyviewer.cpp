@@ -46,6 +46,8 @@ PropertyViewer::PropertyViewer(QWidget *parent)
 		  top[tok[0]] = wid;
 	  }
   });
+  for (auto& x : top) {
+  }
   // Fill up treeWidget with items according to their hierarchy
   for (auto x : top) {
 	  m_parameterTree->addTopLevelItem(x.second);
@@ -58,6 +60,10 @@ PropertyViewer::PropertyViewer(QWidget *parent)
 		  if (de != nullptr)
 			  m_parameterDelegates.push_back(de);
   });
+  for (auto x : top)
+	  x.second->sortChildren(0, Qt::AscendingOrder);
+
+  m_parameterTree->sortItems(0, Qt::DescendingOrder);
   addToTree(&reflect, "reflection test", m_parameterTree);
 
 

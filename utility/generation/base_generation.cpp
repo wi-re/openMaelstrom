@@ -1,4 +1,3 @@
-#pragma once
 #include <utility/include_all.h>
 #include <utility/generation.h>
 

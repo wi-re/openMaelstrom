@@ -64,38 +64,59 @@ mesh objectLoader::mergeMeshes() {
   dirty = false;
   return merged;
 }
+namespace boost {
+inline auto hash_value(float3 v);
+inline auto hash_value(float4 v);
+//inline auto hash_value(Vertex v);
+//inline auto hash_value(Triangle t);
+} // namespace boost
+inline auto combine(std::size_t &seed) {}
 template <typename T, typename... Ts> auto combine(std::size_t &seed, T arg, Ts &&... args) {
   boost::hash_combine(seed, boost::hash_value(arg));
   combine(seed, std::forward<Ts>(args)...);
 }
-auto combine(std::size_t &seed) {}
+
 namespace boost {
-auto hash_value(float3 v) {
+inline auto hash_value(float3 v) {
   std::size_t seed = 0x129037;
   ::combine(seed, v.x, v.y, v.z);
   return seed;
 }
-auto hash_value(float4 v) {
+inline auto hash_value(float4 v) {
 	std::size_t seed = 0x129037;
 	::combine(seed, v.x, v.y, v.z, v.w);
 	return seed;
 }
 
 
-auto hash_value(Vertex v) {
-  std::size_t seed = 0x0983274;
-  ::combine(seed, v.normal, v.position);
-  return seed;
-}
-auto hash_value(Triangle t) {
-  std::size_t seed = 0x01892364;
-  ::combine(seed, t.center, t.bottom, t.color, t.normal);
-  ::combine(seed, t.e1, t.e2, t.e3, t.d, t.d2, t.d3);
-  ::combine(seed, t.i0, t.i1, t.i2, t.twoSided);
-  return seed;
-}
+//inline auto hash_value(Vertex v) {
+//  std::size_t seed = 0x0983274;
+//  ::combine(seed, v.normal, v.position);
+//  return seed;
+//}
+//inline auto hash_value(Triangle t) {
+//  std::size_t seed = 0x01892364;
+//  ::combine(seed, t.center, t.bottom, t.color, t.normal);
+//  ::combine(seed, t.e1, t.e2, t.e3, t.d, t.d2, t.d3);
+//  ::combine(seed, t.i0, t.i1, t.i2, t.twoSided);
+//  return seed;
+//}
 } // namespace boost
-std::size_t objectLoader::hash() {
+
+  inline auto hash_value(Vertex v) {
+    std::size_t seed = 0x0983274;
+    ::combine(seed, v.normal, v.position);
+    return seed;
+  }
+  inline auto hash_value(Triangle t) {
+    std::size_t seed = 0x01892364;
+    ::combine(seed, t.center, t.bottom, t.color, t.normal);
+    ::combine(seed, t.e1, t.e2, t.e3, t.d, t.d2, t.d3);
+    ::combine(seed, t.i0, t.i1, t.i2, t.twoSided);
+    return seed;
+  }
+
+inline std::size_t objectLoader::hash() {
   if (!dirty)
     return stored_hash;
   if (!hashable)
@@ -373,7 +394,7 @@ void objectLoader::createGPUArrays() {
 	if (!active)
 		return;
   auto allocAndCopy = [&](auto &ptr, auto &data) {
-    using T = std::decay_t<decltype(data)>::value_type;
+    using T = typename std::decay_t<decltype(data)>::value_type;
     cudaMalloc((void **)&ptr, data.size() * sizeof(T));
     cudaMemcpy(ptr, data.data(), data.size() * sizeof(T), cudaMemcpyHostToDevice);
   };
@@ -458,7 +479,7 @@ gpuBVH objectLoader::getGPUArrays() {
 }
 
 void objectLoader::tearDownMeshes() {
-	int32_t vtxCounter = merged.vertices.size();
+	int32_t vtxCounter = (int32_t)merged.vertices.size();
 	for (auto& t : merged.triangles) {
 		auto vtx0 = merged.vertices[t.i0];
 		auto vtx1 = merged.vertices[t.i1];

@@ -11,9 +11,13 @@ void initDomain();
 
 void defaultAllocate();
 
+void defaultRigidAllocate();
+
 void initSnapshot();
 
 void initKernel();
 
 void initBoundary();
+
+void initVolumeBoundary();
 } // namespace IO::config

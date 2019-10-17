@@ -305,6 +305,9 @@ auto writeLUT(const std::string& name, const std::vector<int32_t>& LUT) {
 }
 
 int main() {
+	Matrix4x4 M = Matrix4x4::identity();
+	float4 test{ 1.f,0.f,0.f,0.f };
+	auto t = M * test;
   std::cout << "Running LUT generation program" << std::endl;
   using pos_t = float4_u<SI::m>;
   bool test_spline4Kernel_LUT = false;
@@ -315,7 +318,7 @@ int main() {
   float_u<SI::volume> volume(1.f);
   auto h = supportFromVol(volume);
   auto H = h * Kernel<kernel_kind::spline4>::kernel_size<float>();
-
+  std::cout << "Generating for H of " << H << std::endl;
   auto position = float4_u<SI::m>{H.val / 2.f, 0.f, 0.f, h.val};
 
   float r = math::brentsMethod(
@@ -330,7 +333,29 @@ int main() {
       0.7f, 1.1f, 1e-7f, 10000);
 
   auto LUT = createLUT([](pos_t a, pos_t b) { return spline4_kernel(a, b); }, 2048, r);
-  auto spline4gradientLUT = createLUT([](pos_t a, pos_t b) { return spline4_gradient(a, b); }, 2048, r);
+  auto spline4gradientLUT = createLUT([](pos_t a, pos_t b) {
+	  auto difference_vector = (a - b);                                                              
+		  auto h = support_helper<pos_t, pos_t>::calculate_support(a, b);
+		  auto r = math::length3(difference_vector);
+		  auto H = h * kernelSize();
+		  auto q = r / H;
+		  auto C = 16.f / CUDART_PI_F;
+		  auto kernel_scaling = C * math::power<-4>(H);
+		  auto kernel_value = 0.f;
+
+		  if (q <= 0.5f) {
+			  auto q1 = 1.f - q;
+			  auto q2 = 0.5f - q;
+			  kernel_value = -3.f * q1 * q1 + 12.f * q2 * q2;
+		  }
+		  else if ((q <= 1.0f) && (q > 0.5f)) {
+			  auto q1 = 1.f - q;
+			  kernel_value = -3.f * (q1 * q1);
+		  }
+		  return kernel_value * kernel_scaling;
+
+		  //return spline4_gradient(a, b) * r; 
+  }, 2048, r);
   auto spikygradientLUT =
       createLUT([](pos_t a, pos_t b) { return PressureKernel<kernel_kind::spline4>::gradient(a, b); }, 2048, r);
   auto xbarLUT = createLUT([](pos_t a, pos_t b) { return b * spline4_kernel(a, b); }, 2048, r * 0.9f);
@@ -343,7 +368,7 @@ int main() {
 
   writeLUT("boundaryLut", "float", LUT);
   writeLUT("pressureLut", "float", spline4gradientLUT);
-  // writeLUT("pressureLut", "float", spikygradientLUT);
+  //writeLUT("pressureLut", "float", spikygradientLUT);
   writeLUT("xbarLut", "float", xbarLUT);
   writeLUT("ctrLut", ctrLUT);
 
@@ -463,7 +488,7 @@ int main() {
           continue;
 		}
         gradientSum += PressureKernel<kernel_kind::spline4>::gradient(position, var);
-      }
+      } 
 
       std::cout << std::setw(7) << std::fixed << std::setprecision(4) << it / H;
       std::cout << " -> " << std::fixed << std::setprecision(4) << std::setw(18)

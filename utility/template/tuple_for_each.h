@@ -46,3 +46,9 @@ void for_each_i(std::array<T, I> &t, FuncT f) {
   for (std::size_t II = 0; II < t.size(); ++II)
     f(t[II], II);
 }
+#if !defined(__CUDA_ARCH__) && !defined(__CUDACC__)
+template<template<typename> typename C, typename... Ts, typename... Us>
+auto callOnTypes(std::tuple<Ts...>, Us&&... args) {
+	(C<Ts>()(args...), ...);
+}
+#endif

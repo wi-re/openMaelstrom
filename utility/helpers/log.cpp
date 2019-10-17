@@ -59,6 +59,9 @@ void logger::write_log(std::string fileName) {
     case log_level::warning:
       sstream << R"(<font color="aqua">WARNING: )";
       break;
+	case log_level::verbose:
+		sstream << R"(<font color="blue">VERBOSE: )";
+		break;
     }
 
     sstream << "</font> " << tm->tm_hour << ":" << tm->tm_min << ":" << tm->tm_sec << " -> "

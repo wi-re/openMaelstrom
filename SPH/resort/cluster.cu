@@ -1,7 +1,7 @@
 #include <SPH/resort/cluster.cuh>
 #include <utility/include_all.h>
 
-void SPH::cluster::clusterParticles(Memory) { 
+void SPH::cluster::clusterParticles(Memory) {    
 	cudaDeviceSynchronize();  
 	// for (int32_t i = 0; i < arrays.num_ptcls; ++i) {
     //       arrays.classification[i] = -1;

@@ -14,7 +14,8 @@ class TimerListWidget : public Docker {
    * median, maxmium, average and the corresponding standard deviation of the
    * timer.**/
   class TimerEntry : public QWidget {
-    QLabel *m_minmaxLabel = nullptr;
+    QLabel *m_lastLabel = nullptr;
+	QLabel *m_minmaxLabel = nullptr;
     QLabel *m_avgdevLabel = nullptr;
 
   public:

@@ -1,845 +1,470 @@
 #pragma once
 #include <utility/include_all.h>
 #define basicVolume (PI4O3 * math::power<3>(arrays.radius))
-
-
 namespace math {
-hostDeviceInline float4_u<SI::m> point1Plane(float4_u<void_unit_ty> E, float4_u<SI::m> P) {
-  auto d = math::planeDistance(E, P);
-  return P - d * E;
-}
-hostDeviceInline float4_u<SI::m> point2Plane(float4_u<void_unit_ty> E0, float4_u<void_unit_ty> E1,
-                                             float4_u<SI::m> P) {
-  auto E2 = math::cross(E0, E1);
-  auto det = math::sqlength3(E2);
-  float4_u<SI::m> linePoint((((math::cross(E2, E1) * E0.val.w) + (math::cross(E0, E2) * E1.val.w)) / det).val);
-  auto lineDirection = math::normalize3(E2);
-  auto diff = P - linePoint;
-  auto distance = math::dot3(diff, lineDirection);
-  return linePoint + lineDirection * distance;
-}
-hostDeviceInline float4_u<SI::m> point3Plane(float4_u<void_unit_ty> E0, float4_u<void_unit_ty> E1,
-                                             float4_u<void_unit_ty> E2, float4_u<SI::m>) {
-  auto a = -E0.val.w * math::cross(E1, E2);
-  auto b = -E1.val.w * math::cross(E2, E0);
-  auto c = -E2.val.w * math::cross(E0, E1);
-  auto d = math::dot3(E0, math::cross(E1, E2));
-  return float4_u<SI::m>(((a + b + c) / d).val);
-}
+	hostDeviceInline float4_u<SI::m> point1Plane(float4_u<void_unit_ty> E, float4_u<SI::m> P) {
+		auto d = math::planeDistance(E, P);
+		return P - d * E;
+	}
+	hostDeviceInline float4_u<SI::m> point2Plane(float4_u<void_unit_ty> E0, float4_u<void_unit_ty> E1, float4_u<SI::m> P) {
+		auto E2 = math::cross(E0, E1);
+		auto det = math::sqlength3(E2);
+		float4_u<SI::m> linePoint((((math::cross(E2, E1) * E0.val.w) + (math::cross(E0, E2) * E1.val.w)) / det).val);
+		auto lineDirection = math::normalize3(E2);
+		auto diff = P - linePoint;
+		auto distance = math::dot3(diff, lineDirection);
+		return linePoint + lineDirection * distance;
+	}
+	hostDeviceInline float4_u<SI::m> point3Plane(float4_u<void_unit_ty> E0, float4_u<void_unit_ty> E1, float4_u<void_unit_ty> E2, float4_u<SI::m>) {
+		auto a = -E0.val.w * math::cross(E1, E2);
+		auto b = -E1.val.w * math::cross(E2, E0);
+		auto c = -E2.val.w * math::cross(E0, E1);
+		auto d = math::dot3(E0, math::cross(E1, E2));
+		return float4_u<SI::m>(((a + b + c) / d).val);
+	}
+	constexpr float kernel_scale = 0.509843426183f;
+	constexpr float kernel_scale_i = 1.2517599686431f;
+	hostDeviceInline auto scaleValue(float val, float targetVolume, float initialVolume) {
+		auto hForInitial = radius_from_volume(initialVolume);
+		auto hForTarget = radius_from_volume(targetVolume);
+		return val * powf(hForInitial, 3.f) / powf(hForTarget, 1.f / 3.f);
+	}
+	hostDeviceInline auto scaleGradient(float val, float targetVolume, float initialVolume) {
+		auto hForInitial = radius_from_volume(initialVolume);
+		auto hForTarget = radius_from_volume(targetVolume);
+		return val * powf(hForInitial, 4.f) / powf(hForTarget, 1.f / 4.f);
+	}
+	template<typename T>
+	hostDeviceInline auto scaleValue(T val, float targetVolume) {
+		float hForInitial = support_from_volume(1.f);// { 1.2517599686431f };
+		float hForTarget = support_from_volume(targetVolume);
+		return val * power<3>(hForInitial) / power<3>(hForTarget);
+	}
+	template<typename T>
+	hostDeviceInline auto scaleGradient(T val, float targetVolume) {
+		float hForInitial = support_from_volume(1.f);// { 1.2517599686431f };
+		float hForTarget = support_from_volume(targetVolume);
+		return val * power<4>(hForInitial) / power<4>(hForTarget);
+	}
 } // namespace math
-
-
 namespace boundary {
-template <typename T>
-hostDeviceInline float4_u<void_unit_ty> POSfunction(float4_u<SI::m> position, T &arrays) {
-  auto volume = PI4O3 * math::power<3>(arrays.radius);
-  auto h = support_from_volume(volume);
-  auto H = h * kernelSize();
+//#define BOUNDARY_OFFSET 0.24509788f
+//#define BOUNDARY_OFFSET 0.4002431620f
+#define BOUNDARY_OFFSET 0.f
+//#define BOUNDARY_OFFSET 0.41f
 
-  float4_u<void_unit_ty> e0, e1, e2;
-  int32_t counter = 0;
-  for (int32_t it = 0; it < arrays.boundaryCounter; ++it) {
-    auto plane = arrays.boundaryPlanes[it];
-    if (math::planeDistance(plane, position) < H) {
-      switch (counter) {
-      case 0:
-        e0 = plane;
-        ++counter;
-        break;
-      case 1:
-        e1 = plane;
-        ++counter;
-        break;
-      case 2:
-        e2 = plane;
-        ++counter;
-        break;
-      default:
-        break;
-      }
-    }
-  }
-  float4_u<SI::m> c;
-  float4_u<void_unit_ty> Hn;
-  switch (counter) {
-  case 1:
-    c = math::point1Plane(e0, position);
-    Hn = e0;
-    break;
-  case 2:
-    c = math::point2Plane(e0, e1, position);
-    Hn = e0 + e1;
-    break;
-  case 3:
-    c = math::point3Plane(e0, e1, e2, position);
-    Hn = e0 + e1 + e2;
-    break;
-  default:
-    return float4_u<void_unit_ty>(0.f, 0.f, 0.f, 1e21f);
-  }
-  auto Hp = c + Hn * H;
-  auto diff = Hp - position;
-  //auto diffL = math::length3(diff);
-  auto Hd = math::normalize3(diff);
-  auto pos = Hp - H * Hd;
+	hostDeviceInline float g(float4_u<SI::m> x, float_u<SI::m> h) {
+		float d = x.val.w;
+		//const float n = 1.f;
+		const float gamma = 2.5f;
+		const float offset = 1.f;
+		//h = support_from_volume(1.f);
+		auto H = h.val * kernelSize();
 
-  auto plane = Hd;
-  plane.val.w = -math::dot3(pos, plane).val;
-  auto distance = math::planeDistance(plane, position);
-  plane.val.w = distance.val;
-  return plane;
-}
+		return 1.f - d / H;
 
-template <typename T>
-hostDeviceInline auto boundaryLookup(float_u<SI::m> distance, float_u<SI::m> H,
-                                     float_u<SI::volume> vol, T &arrays) {
-  int32_t idx =
-      math::clamp(arrays.boundaryLUTSize -
-                      static_cast<int32_t>(
-                          ceilf((distance.val + H.val) / H.val * ((float)arrays.boundaryLUTSize + 1) * 0.5f)),
-                  0, arrays.boundaryLUTSize - 1);
-  if (distance >= H * 0.995f)
-    return (decltype(arrays.boundaryLUT[idx] / vol))(0.f);
-  else
-    return arrays.boundaryLUT[idx] / vol;
-}
-template <typename T>
-hostDeviceInline auto boundaryGradientLookup(float_u<SI::m> distance, float_u<SI::m> H,
-                                             float_u<SI::volume> vol, T &arrays) {
-  int32_t idx =
-      math::clamp(arrays.boundaryLUTSize -
-                      static_cast<int32_t>(
-                          ceilf((distance.val + H.val) / H.val * ((float)arrays.boundaryLUTSize + 1) * 0.5f)),
-                  0, arrays.boundaryLUTSize - 2);
-  auto step = H / ((float)arrays.boundaryLUTSize + 1) * 2.f;
-  auto a = arrays.boundaryLUT[idx + 1] / vol;
-  auto b = arrays.boundaryLUT[idx] / vol;
-  if (distance >= H * 0.995f)
-    return (decltype((b - a) / step))(0.f);
-  else
-    return (b - a) / step;
-}
-template <typename T>
-hostDeviceInline auto boundaryPressureLookup(float_u<SI::m> distance, float_u<SI::m> H,
-                                             float_u<SI::volume> vol, T &arrays) {
-  int32_t idx =
-      math::clamp(arrays.boundaryLUTSize -
-                      static_cast<int32_t>(
-                          ceilf((distance.val + H.val) / H.val * ((float)arrays.boundaryLUTSize + 1) * 0.5f)),
-                  0, arrays.boundaryLUTSize - 1);
-  if (distance >= H * 0.995f)
-    return (decltype(arrays.boundaryPressureLUT[idx] / vol))(0.f);
-  else
-    return arrays.boundaryPressureLUT[idx] / vol;
-}
-template <typename T>
-hostDeviceInline auto boundaryPressureGradientLookup(float_u<SI::m> distance, float_u<SI::m> H,
-                                                     float_u<SI::volume> vol, T &arrays) {
-  int32_t size = arrays.boundaryLUTSize;
-  auto volumeb = PI4O3 * math::power<3>(arrays.radius);
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
+		float q = ( - d + BOUNDARY_OFFSET * H) / (1.f * H);
+		//q = math::clamp(q, -FLT_MAX, 1.f);
+		auto qq = q * gamma + offset;
+		if (d >= BOUNDARY_OFFSET * H) return 1.f;
+		return qq * 1.f;// powf(q * gamma + offset, n);
+	}
+	hostDeviceInline float dg(float4_u<SI::m> x, float_u<SI::m> h) {
+		float d = x.val.w;
+		//const float n = 1.f;
+		const float gamma = 2.5f;
+		//const float offset = 1.f;
+		//h = support_from_volume(1.f);
+		auto H = h.val * kernelSize();
+		//float q = ( - d) / (2.f * H);
+		//q = math::clamp(q, -FLT_MAX, 1.f);
+		return -1.f / H;
 
-  auto step = Hb / ((float)size + 1) * 2.f;
-  float_u<SI::m> h_0(1.2517599643209638f);
-  auto h_c = H / kernelSize();
-  auto ratio = h_0 / h_c;
+		if (d >= BOUNDARY_OFFSET * H) return 0.f;
+		//float g = q * gamma + offset;
+		//float fac = 1.f;//support_from_volume(float_u<SI::volume>{1.f}).val / h.val;
+		//auto qq = q * gamma + offset;
+		return -gamma / (1.f * H) * 1.f; // *powf(q * gamma + offset, n - 1.f);
+	}
 
-  int32_t idx = math::clamp((int32_t)size - math::castTo<int32_t>(math::floorf((distance + Hb) / step)), 0,
-                            (int32_t)size - 1);
-  if (distance >= H * 0.995f)
-    return (decltype(arrays.boundaryPressureLUT[idx] / vol))(0.f);
-  else
-    return arrays.boundaryPressureLUT[idx] / vol * ratio;
-}
+	hostDeviceInline auto lookupOffset(float* offsetLUT, float val, int32_t lutSize) {
+		float xRel = val * ((float)lutSize - 1.f);
+		auto xL = math::floorf(xRel);
+		auto xH = math::ceilf(xRel);
+		auto xD = xRel - xL;
+		int32_t xLi = math::clamp(static_cast<int32_t>(xL), 0, lutSize - 1);
+		int32_t xHi = math::clamp(static_cast<int32_t>(xH), 0, lutSize - 1);
+		auto lL = offsetLUT[xLi];
+		auto lH = offsetLUT[xHi];
+		auto v = lL * xD + (1.f - xD) * lH;
+		return v;
+	}
 
-template <typename T>
-hostDeviceInline auto xbarLookup(float_u<SI::m> distance, float_u<SI::m> H, float_u<SI::volume> vol,
-                                 T &arrays) {
-  int32_t size = arrays.boundaryLUTSize;
+	template<typename T, typename U>
+	hostDeviceInline auto lookupValue(const U& arrays, T* LUT, int32_t lutSize, float4_u<SI::m> distance, float_u<SI::volume> volume, float_u<> density, float_u<SI::m> h, float Hoffset = 0.f) {
+		auto x = distance.val.w;
+		auto H = h.val * kernelSize();
+		auto xRel = math::clamp((x + H + H * (lookupOffset((float*)arrays.offsetLUT, density.val, lutSize) /*+ 0.24509788f*/)) / (2.f * H), 0.f, 1.f) * ((float)lutSize - 1.f);
+		auto xL = math::floorf(xRel);
+		auto xH = math::ceilf(xRel);
+		auto xD = xRel - xL;
+		int32_t xLi = math::clamp(static_cast<int32_t>(xL), 0, lutSize - 1);
+		int32_t xHi = math::clamp(static_cast<int32_t>(xH), 0, lutSize - 1);
+		auto lL = LUT[xLi];
+		auto lH = LUT[xHi];
+		auto val = lL * xD + (1.f - xD) * lH;
+		return val;
+		//return val * powf(2.28539074867f, 3.f) * powf(H, -3.f);
+	}
+	template<typename T, typename U>
+	hostDeviceInline auto lookupGradient(const U& arrays, T* LUT, int32_t lutSize, float4_u<SI::m> distance, float_u<SI::volume> volume, float_u<> density, float_u<SI::m> h, float Hoffset = 0.f) {
+		auto x = distance.val.w;
+		auto H = h.val * kernelSize();
+		auto xRel = math::clamp((x + H + H * (lookupOffset((float*)arrays.offsetLUT, density.val, lutSize) /*+ 0.24509788f*/)) / (2.f * H),0.f,1.f) * ((float)lutSize - 1.f);
+		auto xL = math::floorf(xRel);
+		auto xH = math::ceilf(xRel);
+		auto xD = xRel - xL;
+		int32_t xLi = math::clamp(static_cast<int32_t>(xL), 0, lutSize - 1);
+		int32_t xHi = math::clamp(static_cast<int32_t>(xH), 0, lutSize - 1);
+		auto lL = LUT[xLi];
+		auto lH = LUT[xHi];
+		auto val = lL * xD + (1.f - xD) * lH;
+		//auto val = (lH - lL) / (2.f * float_u<SI::m>(H) / ((float)lutSize - 1.f));
+		return val;
+		//return val * powf(2.28539074867f, 4.f) * powf(H, -4.f);
+	};
+	
 
-  auto step = H / ((float)size + 1) * 2.f;
-  float_u<SI::m> h_0(1.2517599643209638f);
-  auto h_c = H / kernelSize();
-  auto hratio = h_0 / h_c;
+}
+#define BOUNDARY_LIMIT (d.val.w < h.val * kernelSize() * 0.995f ? 1.f : 0.f)
 
-  int32_t idx = math::clamp((int32_t)size - math::castTo<int32_t>(math::floorf((distance + H) / step)), 0,
-                            (int32_t)size - 1);
+namespace planeBoundary {
+	namespace internal {
+		template <typename T>
+		hostDeviceInline float4_u<void_unit_ty> POSfunction(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<SI::m> h, T &arrays) {
+			auto H = h * kernelSize();
+			auto H1 = support_from_volume(1.f) * kernelSize();
+			if (H <= H1)
+				H = H1;
+			float4_u<void_unit_ty> e0, e1, e2;
+			int32_t counter = 0;
+			for (int32_t it = 0; it < arrays.boundaryCounter; ++it) {
+				auto plane = arrays.boundaryPlanes[it];
+				auto d = math::planeDistance(plane, position);
+				if (d < 0.995f * H) {
+					switch (counter) {
+					case 0:
+						e0 = plane;
+						++counter;
+						break;
+					case 1:
+						e1 = plane;
+						++counter;
+						break;
+					case 2:
+						e2 = plane;
+						++counter;
+						break;
+					default:
+						break;
+					}
+				}
+			}
+			float4_u<SI::m> c;
+			float4_u<void_unit_ty> Hn;
+			switch (counter) {
+			case 1:
+				c = math::point1Plane(e0, position);
+				Hn = e0;
+				break;
+			case 2:
+				c = math::point2Plane(e0, e1, position);
+				Hn = e0 + e1;
+				break;
+			case 3:
+				c = math::point3Plane(e0, e1, e2, position);
+				Hn = e0 + e1 + e2;
+				break;
+			default:
+				return float4_u<void_unit_ty>(0.f, 0.f, 0.f, 1e21f);
+			}
+			Hn = math::normalize3(Hn);
+			float Hfactor = sqrtf((float)counter);
+			float4_u<SI::m> Hp = c + Hfactor * Hn * H;
+			float4_u<SI::m> diff = Hp - position;
+			float_u<SI::m> diffL = math::length3(diff);
+			float4_u<void_unit_ty> Hd = diff.val * (diffL.val < FLT_MIN ? 0.f : 1.f / diffL.val);
+			float4_u<SI::m> pos = Hp - (H - 0.24509788f * h.val * kernelSize() * 0.f /* * 0.612f*/ ) * Hd;
 
-  return pair<value_unit<float, SI::derived_unit<SI::recip_3<SI::m>, SI::recip_2<SI::m>> /*SI::SI_Unit<SI::Base::m, ratio<-5, 1>>*/>,
-              float_u<SI::recip<SI::volume>>>{arrays.xbarLUT[idx] / vol / hratio,
-                                              arrays.boundaryLUT[idx] / vol / hratio};
-}
-template <typename T>
-hostDeviceInline auto ctrLookup(float_u<SI::m> distance, float_u<SI::m> H, float_u<SI::volume>,
-                                T &arrays) {
-  int32_t idx =
-      math::clamp(arrays.boundaryLUTSize -
-                      math::castTo<int32_t>(
-                          math::ceilf((distance + H) / H * ((float)arrays.boundaryLUTSize + 1) * 0.5f)),
-                  0, arrays.boundaryLUTSize - 1);
-  return arrays.ctrLUT[idx];
-}
-
-template <typename T> hostDeviceInline auto spline4(float4_u<SI::m> position, T &arrays) {
-  auto volumeb = basicVolume;
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
-  auto POS = boundary::POSfunction(position, arrays);
-  auto val = boundaryLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays) * volumeb;
-  if (POS.val.w < 1e20f)
-    return val;
-  else 
-    return val * 0.f;
-}
-template <typename T>
-hostDeviceInline auto spikyGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-  auto H = float_u<SI::m>(position.val.w * Kernel<kernel_kind::spline4>::kernel_size());
-  //auto volumeb = basicVolume;
-  //auto hb = support_from_volume(volumeb);
-  //auto Hb = hb * kernelSize();
-  auto POS = boundary::POSfunction(position, arrays);
-  float4_u<> n{POS.val.x, POS.val.y, POS.val.z, 0.f};
-  auto val = n * boundaryPressureGradientLookup(float_u<SI::m>(POS.val.w), H, vol, arrays);
-  if (POS.val.w < 1e20f)
-    return val;
-  else 
-    return val * 0.f;
-}
-template <typename T>
-hostDeviceInline auto splineGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-  auto H = float_u<SI::m>(position.val.w * Kernel<kernel_kind::spline4>::kernel_size());
-  auto volumeb = basicVolume;
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
-  auto POS = boundary::POSfunction(position, arrays);
-  float4_u<> n{POS.val.x, POS.val.y, POS.val.z, 0.f};
-  auto val = n * boundaryGradientLookup(float_u<SI::m>(POS.val.w), H, vol, arrays);
-  if (POS.val.w < 1e20f)
-    return val;
-  else 
-    return val * 0.f;
-}
-template <typename T> hostDeviceInline auto xBar(float4_u<SI::m> position, T &arrays) {
-  auto volumeb = basicVolume;
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
-  auto POS = boundary::POSfunction(position, arrays);
-  auto values = xbarLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays);
-  if (POS.val.w < 1e20f)
-    return pair<float_u<SI::recip_2<SI::m>>, float_u<SI::recip<SI::volume>>>{values.first * volumeb,
-                                                                             values.second};
-  else
-    return pair<float_u<SI::recip_2<SI::m>>, float_u<SI::recip<SI::volume>>>{
-        float_u<SI::recip_2<SI::m>>{0.f}, float_u<SI::recip<SI::volume>>{0.f}};
-}
-template <typename T> hostDeviceInline auto count(float4_u<SI::m> position, T &arrays) {
-  auto volumeb = basicVolume;
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
-  auto POS = boundary::POSfunction(position, arrays);
-  if (POS.val.w < 1e20f)
-    return ctrLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays);
-  else
-    return int32_t(0);
-}
+			float4_u<void_unit_ty> plane = Hd;
+			plane.val.w = -math::dot3(pos, plane).val;
+			auto distance = math::planeDistance(plane, position);
+			//if (distance < 0.f)
+			//	plane.val = -plane.val;
+			plane.val.w = distance.val;
+			return plane;
+		}
+	}
+	template<typename T>
+	hostDeviceInline auto distance(float4_u<SI::m> p, float_u<SI::volume> v, T& arrays) {
+		return float4_u<>(internal::POSfunction(p, v, support_from_volume(v), arrays).val);
+	}
+	template<typename T, typename U>
+	hostDeviceInline auto value2(U* LUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T& arrays) {
+		using Ty = decltype(boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, position, volume, density, support_from_volume(volume)));
+		auto d = distance(position, volume, arrays);
+		auto h = support_from_volume(volume);
+		//auto fac = d.val < 2.f * h.val * kernelSize() ? 1.f : 0.f;
+		//if (!(d.val < 2.f * h.val * kernelSize())) return Ty{ 0.f };
+		return boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, h, arrays.LUTOffset) * BOUNDARY_LIMIT;
+	}
+	template<typename T, typename U>
+	hostDeviceInline auto value(U* LUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T& arrays) {
+		using Ty = decltype(boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, position, volume, density, support_from_volume(volume)));
+		auto d = distance(position, volume, arrays);
+		auto h = support_from_volume(volume);
+		auto h0 = support_from_volume(4.f / 3.f * CUDART_PI_F * math::cubic(arrays.radius));
+		//auto fac = d.val < 2.f * h.val * kernelSize() ? 1.f : 0.f;
+		//if (!(d.val < 2.f * h.val * kernelSize())) return Ty{ 0.f };
+		return boundary::g(d,h) * boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset) * BOUNDARY_LIMIT;
+	}
+	template<typename T, typename U, typename V>
+	hostDeviceInline auto gradient(U* LUT, V* gradLUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T& arrays) {
+		auto d = distance(position, volume, arrays);
+		using Ty = decltype(d * boundary::lookupGradient(arrays, gradLUT, arrays.boundaryLUTSize, position, volume, density, support_from_volume(volume)));
+		auto h = support_from_volume(volume);
+		//auto h0 = support_from_volume(4.f / 3.f * CUDART_PI_F * math::cubic(arrays.radius));
+		//auto fac = d.val < 2.f * h.val * kernelSize() ? 1.f : 0.f;
+		//if (!(d.val < 2.f * h.val * kernelSize())) return Ty{ 0.f, 0.f, 0.f, 0.f };
+		return d  * BOUNDARY_LIMIT *
+			(boundary::g(d, h) * boundary::lookupGradient(arrays, gradLUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset) +
+			 boundary::dg(d, h) * boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset).val);
+	}
 } // namespace boundary
 
 namespace volumeBoundary {
-#ifdef __CUDA_ARCH__
-template <typename T> hostDeviceInline auto volumeDistance(float4_u<SI::m> tp, T &arrays) {
-  auto H = float_u<SI::m>(tp.val.w * Kernel<kernel_kind::spline4>::kernel_size());
+	namespace internal {
 
-  for (int32_t i = 0; i < arrays.volumeBoundaryCounter; ++i) {
-    float4_u<SI::m> d_min = arrays.volumeBoundaryMin[i];
-    float4_u<SI::m> d_max = arrays.volumeBoundaryMax[i];
+#if defined(__CUDA_ARCH__) || defined(__INTELLISENSE__)
+		template <typename T> hostDeviceInline auto volumeDistanceFni(float4_u<SI::m> p, float_u<SI::volume> volume, float_u<SI::m> h, T &arrays, int32_t i) {
+			float4 pt{ p.val.x, p.val.y, p.val.z, 1.f };
+			float4_u<void_unit_ty> tp{ arrays.volumeBoundaryTransformMatrixInverse[i] * pt };
+			//tp.val = pt;
 
-	if ((d_min.val.x < tp.val.x) && (d_min.val.y < tp.val.y) && (d_min.val.z < tp.val.z) &&
-		(d_max.val.x > tp.val.x) && (d_max.val.y > tp.val.y) && (d_max.val.z > tp.val.z)) {
-      float4_u<void_unit_ty> d_p = (tp - d_min) / (d_max - d_min);
-      float4_u<void_unit_ty> n =
-          tex3D<float4>(arrays.volumeBoundaryVolumes[i], d_p.val.x, d_p.val.y, d_p.val.z);
-      float d = n.val.w;
-      n.val.w = 0.f;
-      math::normalize3(n);
-      n.val.w = d;
+			float4_u<SI::m> d_min = arrays.volumeBoundaryMin[i];
+			float4_u<SI::m> d_max = arrays.volumeBoundaryMax[i];
 
-      if (d < H)
-        return n;
-    }
-  }
-  return float4_u<>{0.f, 0.f, 0.f, 1e21f};
-}
+			if ((d_min.val.x < tp.val.x) && (d_min.val.y < tp.val.y) && (d_min.val.z < tp.val.z) &&
+				(d_max.val.x > tp.val.x) && (d_max.val.y > tp.val.y) && (d_max.val.z > tp.val.z)) {
+				float4_u<void_unit_ty> d_p = (tp.val - d_min.val) / (d_max.val - d_min.val);
+				#ifdef __clang__
+				//asm("ld.global.cg.s32 %0, [%1];" : "=r"(*(reinterpret_cast<int32_t*>(&pSpan))) :
+				float4_u<void_unit_ty> n =
+					tex3D<float4>(arrays.volumeBoundaryVolumes[i], d_p.val.x, d_p.val.y, d_p.val.z);
+				#else
+				float4_u<void_unit_ty> n =
+					tex3D<float4>(arrays.volumeBoundaryVolumes[i], d_p.val.x, d_p.val.y, d_p.val.z);
+				#endif
+				float d = n.val.w;
+				n.val.w = 0.f;
+				math::normalize3(n);
+
+				if (d < 0.995f * h * kernelSize()) {
+					n.val = arrays.volumeBoundaryTransformMatrixInverse[i].transpose() * n.val;
+					//auto pbw = pt - d * nw;
+					n = math::normalize3(n);
+					n.val.w = d;
+					return n;
+				}
+			}
+			return float4_u<>{0.f, 0.f, 0.f, 1e21f};
+		}
 #else
-template <typename T> hostDeviceInline auto volumeDistance(float4_u<SI::m>, T&) {
-  return float4_u<>{0.f, 0.f, 0.f, 1e21f};
-}
+		template <typename T> hostDeviceInline auto volumeDistanceFni(float4_u<SI::m>, float_u<SI::volume> volume, float_u<SI::m> h, T& arrays, int32_t idx) {
+			return float4_u<>{0.f, 0.f, 0.f, 1e21f};
+		}
 #endif
-template <typename T> hostDeviceInline auto spline4(float4_u<SI::m> position, T &arrays) {
-  auto volumeb = basicVolume;
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
-  auto POS = volumeDistance(position, arrays);
-  auto val = boundary::boundaryLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays) * volumeb;
-  if (POS.val.w < 1e20f)
-    return val;
-  else
-    return val * 0.f;
-}
-template <typename T>
-hostDeviceInline auto spikyGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-  auto H = float_u<SI::m>(position.val.w * Kernel<kernel_kind::spline4>::kernel_size());
-  //auto volumeb = basicVolume;
-  //auto hb = support_from_volume(volumeb);
-  //auto Hb = hb * kernelSize();
-  auto POS = volumeDistance(position, arrays);
-  float4_u<> n{POS.val.x, POS.val.y, POS.val.z, 0.f};
-
-  auto val = n * boundary::boundaryPressureGradientLookup(float_u<SI::m>(POS.val.w), H, vol, arrays);
-  if (POS.val.w >= H)
-    return val * 0.f;
-  return val;
-}
-template <typename T>
-hostDeviceInline auto splineGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-  auto H = float_u<SI::m>(position.val.w * Kernel<kernel_kind::spline4>::kernel_size());
-  auto volumeb = basicVolume;
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
-  auto POS = volumeDistance(position, arrays);
-  float4_u<> n{POS.val.x, POS.val.y, POS.val.z, 0.f};
-  auto val = n * boundary::boundaryGradientLookup(float_u<SI::m>(POS.val.w), H, vol, arrays);
-  if (POS.val.w >= H)
-    return val * 0.f;
-  return val;
-}
-template <typename T> hostDeviceInline auto xBar(float4_u<SI::m> position, T &arrays) {
-  auto volumeb = basicVolume;
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
-  auto POS = volumeDistance(position, arrays);
-  auto values = boundary::xbarLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays);
-  if (POS.val.w < 1e20f)
-    return pair<float_u<SI::recip_2<SI::m>>, float_u<SI::recip<SI::volume>>>{values.first * volumeb,
-                                                                             values.second};
-  else
-    return pair<float_u<SI::recip_2<SI::m>>, float_u<SI::recip<SI::volume>>>{
-        float_u<SI::recip_2<SI::m>>{0.f}, float_u<SI::recip<SI::volume>>{0.f}};
-}
-template <typename T> hostDeviceInline auto count(float4_u<SI::m> position, T &arrays) {
-  auto volumeb = basicVolume;
-  auto hb = support_from_volume(volumeb);
-  auto Hb = hb * kernelSize();
-  auto POS = volumeDistance(position, arrays);
-  if (POS.val.w < 1e20f)
-    return boundary::ctrLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays);
-  else
-    return int32_t(0);
-}
+	}
+	template<typename T>
+	hostDeviceInline auto distance_fn(float4_u<SI::m> p, float_u<SI::volume> v, T& arrays, int32_t idx) {
+		return float4_u<>(internal::volumeDistanceFni(p, v, support_from_volume(v), arrays, idx).val);
+	}
+	template<typename T, typename U>
+	hostDeviceInline auto value2(U* LUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T& arrays, int32_t idx) {
+		using Ty = decltype(boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, position, volume, density, support_from_volume(volume)));
+		Ty sum{ 0.f };
+		auto h = support_from_volume(volume);
+		if (idx == -1) {
+			for (int32_t i = 0; i < arrays.volumeBoundaryCounter; ++i) {
+				auto d = distance_fn(position, volume, arrays, i);
+				if (d.val.w < 0.9995f * h.val * kernelSize())
+					sum += 1.f / boundary::g(d, h) *  1.f / boundary::g(d, h) * boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset) * BOUNDARY_LIMIT;
+			}
+		}
+		else {
+			auto d = distance_fn(position, volume, arrays, idx);
+			if (d.val.w < 0.9995f * h.val * kernelSize())
+				return  1.f / boundary::g(d, h) *  1.f / boundary::g(d, h) * boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset) * BOUNDARY_LIMIT;
+		}
+		return sum;
+	}
+	template<typename T, typename U>
+	hostDeviceInline auto value(U* LUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T& arrays, int32_t idx) {
+		using Ty = decltype(boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, position,volume, density, support_from_volume(volume)));
+		Ty sum{ 0.f };
+		auto h = support_from_volume(volume);
+		if (idx == -1) {
+			for (int32_t i = 0; i < arrays.volumeBoundaryCounter; ++i) {
+				auto d = distance_fn(position, volume, arrays, i);
+				if(d.val.w < 0.9995f * h.val * kernelSize())
+					sum += boundary::g(d, h) * boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset) * BOUNDARY_LIMIT;
+			}
+		}
+		else {
+			auto d = distance_fn(position, volume, arrays, idx);
+			if (d.val.w < 0.9995f * h.val * kernelSize())
+				return boundary::g(d, h) * boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset) * BOUNDARY_LIMIT;
+		}
+		return sum;
+	}
+	template<typename T, typename U, typename V>
+	hostDeviceInline auto gradient(U* LUT, V* gradLUT, 
+		float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T& arrays, int32_t idx = -1) {
+		using Ty = decltype(boundary::lookupGradient(arrays, gradLUT, arrays.boundaryLUTSize, position, volume, density, support_from_volume(volume)));
+		auto sum = float4_u<>{ 0.f, 0.f, 0.f, 0.f } *Ty{};
+		auto h = support_from_volume(volume);
+		if (idx == -1) {
+			for (int32_t i = 0; i < arrays.volumeBoundaryCounter; ++i) {
+				auto d = distance_fn(position, volume, arrays, i);
+				if (d.val.w < 0.9995f * h.val * kernelSize())
+					sum += d * (
+						boundary::g(d, h) * boundary::lookupGradient(arrays, gradLUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset) +
+						boundary::dg(d, h) * boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset).val
+						)
+					* BOUNDARY_LIMIT;
+			}
+		}
+		else {
+			auto d = distance_fn(position, volume, arrays, idx);
+			if (d.val.w < 0.9995f * h.val * kernelSize())
+				return d * (
+					boundary::g(d, h) * boundary::lookupGradient(arrays, gradLUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset) +
+					boundary::dg(d, h) * boundary::lookupValue(arrays, LUT, arrays.boundaryLUTSize, d, volume, density, h, arrays.LUTOffset).val
+					) * BOUNDARY_LIMIT;
+		}
+		return sum;
+	}
 } // namespace volumeBoundary
+namespace boundary{
+	enum struct kind {
+		volume, plane, both
+	};
+	namespace internal{
+		template<typename T, typename U> hostDeviceInline auto lookup2(T* LUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, U &arrays, kind k = kind::both, int32_t idx = -1) {
+			if (k == kind::plane)
+				return planeBoundary::value2(LUT, position, volume, density, arrays);
+			else if (k == kind::volume)
+				return volumeBoundary::value2(LUT, position, volume, density, arrays, idx);
+			else
+				return planeBoundary::value2(LUT, position, volume, density, arrays) + volumeBoundary::value2(LUT, position, volume, density, arrays, idx);
+		}
+		template<typename T, typename U> hostDeviceInline auto lookup(T* LUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, U &arrays, kind k = kind::both, int32_t idx = -1) {
+			if (k == kind::plane)
+				return planeBoundary::value(LUT, position, volume, density, arrays);
+			else if (k == kind::volume)
+				return volumeBoundary::value(LUT, position, volume, density, arrays, idx);
+			else
+				return planeBoundary::value(LUT, position, volume, density, arrays) + volumeBoundary::value(LUT, position, volume, density, arrays, idx);
+		}
+		template<typename T, typename U, typename V> hostDeviceInline auto lookupGradient(T* LUT, V* gradLUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, U &arrays, kind k = kind::both, int32_t idx = -1) {
+			if (k == kind::plane)
+				return planeBoundary::gradient(LUT, gradLUT, position, volume, density, arrays);
+			else if (k == kind::volume)
+				return volumeBoundary::gradient(LUT, gradLUT, position, volume, density, arrays, idx);
+			else
+				return planeBoundary::gradient(LUT, gradLUT, position, volume, density, arrays) + volumeBoundary::gradient(LUT, gradLUT, position, volume, density, arrays, idx);
+		}
+		template<typename T, typename U> hostDeviceInline auto lookupScaled2Value(T* LUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, U &arrays, kind k = kind::both, int32_t idx = -1) {
+			return internal::lookup2(LUT, position, volume, density, arrays, k, idx);
+		}
+		template<typename T, typename U> hostDeviceInline auto lookupScaledValue(T* LUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, U &arrays, kind k = kind::both, int32_t idx = -1) {
+			auto val = internal::lookup(LUT, position, volume, density, arrays, k, idx);
+			//auto vol = lookup(arrays.volumeLUT, position, volume, arrays, k, idx).val * volume;
+			//if (vol > 0.f) {
+				//auto kus = val;// / vol;
+				return val;
+				//return math::scaleValue(kus, volume.val);
+			//}
+			//else {
+			//	return val * 0.f;// / float_u<SI::volume>{1.f} *0.f;
+			//}
+		}
+		template<typename T, typename U, typename V> hostDeviceInline auto lookupScaledGradient(T* LUT, V* gradLUT, float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, U &arrays, kind k = kind::both, int32_t idx = -1) {
+			auto val = internal::lookupGradient(LUT, gradLUT, position, volume, density, arrays, k, idx);
+			//auto vol = lookup(arrays.volumeLUT, position, volume, arrays, k, idx).val * volume;
+			//if (vol > 0.f) {
+			//	auto kus = val;// / vol;
+				return val * support_from_volume(float_u<SI::volume>{1.f}) / support_from_volume(volume);
+				//return math::scaleGradient(kus, volume.val);
+			//}
+			//else {
+			//	return val * 0.f; // / float_u<SI::volume>{1.f} *0.f;
+			//}
+		}
+	}
+	template<typename T> hostDeviceInline float_u<> unscaledVolume(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return internal::lookup(arrays.volumeLUT, position, volume, density, arrays, k, idx) / float_u<SI::volume>{1.f /*(float)kernelNeighbors()*/};
+	}
+	template<typename T> hostDeviceInline float_u<SI::volume> volume(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return volume * unscaledVolume(position, volume, density, arrays, k, idx);
+	}
+	template <typename T> hostDeviceInline float_u<> spline(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return internal::lookupScaledValue(arrays.splineLUT, position, volume, density, arrays, k, idx);
+	}
+	template <typename T> hostDeviceInline float4_u<SI::m_1> splineGradient(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return internal::lookupScaledGradient(arrays.splineLUT, arrays.splineGradientLUT, position, volume, density, arrays, k, idx);
+	}
+	template <typename T> hostDeviceInline float_u<SI::m_5> splineGradient2(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return internal::lookupScaled2Value(arrays.spline2LUT, position, volume, density, arrays, k, idx) * math::power<5>(support_from_volume(float_u<SI::volume>{1.f})) / math::power<5>(support_from_volume(volume));
+	}
+	template <typename T> hostDeviceInline float_u<> spiky(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return internal::lookupScaledValue(arrays.spikyLUT, position, volume, density, arrays, k, idx);
+	}
+	template <typename T> hostDeviceInline float4_u<SI::m_1> spikyGradient(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return internal::lookupScaledGradient(arrays.spikyLUT, arrays.spikyGradientLUT, position, volume, density, arrays, k, idx);
+	}
+	template <typename T> hostDeviceInline auto cohesion(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return internal::lookupScaledGradient(arrays.cohesionLUT, position, volume, density, arrays, k, idx);
+	}
+	template <typename T> hostDeviceInline auto adhesion(float4_u<SI::m> position, float_u<SI::volume> volume, float_u<> density, T &arrays, kind k = kind::both, int32_t idx = -1) {
+		return internal::lookupScaledGradient(arrays.adhesionLUT, arrays.adhesionLUT, position, volume, density, arrays, k, idx);
+	}
+} // namespace boundary
 
-namespace SWH {
-template <typename T> hostDeviceInline auto spline4(float4_u<SI::m> position, T &arrays) {
-  return volumeBoundary::spline4(position, arrays) + 
-          boundary::spline4(position, arrays);
-}
-template <typename T>
-hostDeviceInline auto spikyGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-  return volumeBoundary::spikyGradient(position, vol, arrays) +
-         boundary::spikyGradient(position, vol, arrays);
-}
-template <typename T>
-hostDeviceInline auto splineGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-  return volumeBoundary::splineGradient(position, vol, arrays) +
-         boundary::splineGradient(position, vol, arrays);
-}
-template <typename T> hostDeviceInline auto xBar(float4_u<SI::m> position, T &arrays) {
-  auto x1 = volumeBoundary::xBar(position, arrays);
-  auto x2 = boundary::xBar(position, arrays);
-  x1.first += x2.first;
-  x1.second += x2.second;
-  return x1;
-}
-template <typename T> hostDeviceInline auto count(float4_u<SI::m> position, T &arrays) {
-  return volumeBoundary::count(position, arrays) + boundary::count(position, arrays);
-}
+#define pDistance planeBoundary::distance(arrays.position[i], arrays.volume[i], arrays)
+#define volumeDistance(b) volumeBoundary::distance_fn(arrays.position[i], arrays.volume[i], arrays, b)
 
-} // namespace SWH
+//#define V_b(k,j) boundary::volume(arrays.position[i], arrays.volume[i], arrays, k, j)
+//#define pV_b V_b(boundary::kind::plane, -1)
+//#define vV_b(j) V_b(boundary::kind::volume, j)
+//#define bV_b V_b(boundary::kind::both, -1)
 
-enum struct SWHkind{volumes, planes, both};
+#define W_ib(k,j) boundary::spline(arrays.position[i], arrays.volume[i], arrays.density[i], arrays, k, j)
+#define pW_ib W_ib(boundary::kind::plane, -1)
+#define vW_ib(j) W_ib(boundary::kind::volume, j)
+//#define bW_ib W_ib(boundary::kind::both, -1)
 
-template <typename T>
-struct SWH2{
-  T& arrays;
-  float4_u<SI::m> position;
-  float4_u<> POS;
-  float4_u<> POS_vol;
-  float_u<SI::m> distance;
-  float_u<SI::m> H;
-  float_u<SI::volume> vol;
-private:
-  hostDevice auto boundary_boundaryLookup(float_u<SI::m> distance, float_u<SI::m> H,
-    float_u<SI::volume> vol, T &arrays) {
-    int32_t idx =
-        math::clamp(arrays.boundaryLUTSize -
-                        static_cast<int32_t>(
-                            ceilf((distance.val + H.val) / H.val * ((float)arrays.boundaryLUTSize + 1) * 0.5f)),
-                    0, arrays.boundaryLUTSize - 1);
-    if (distance >= H * 0.995f)
-      return (decltype(arrays.boundaryLUT[idx] / vol))(0.f);
-    else
-      return arrays.boundaryLUT[idx] / vol;
-  }
-  hostDevice auto boundary_boundaryGradientLookup(float_u<SI::m> distance, float_u<SI::m> H,
-    float_u<SI::volume> vol, T &arrays) {
-    int32_t idx =
-        math::clamp(arrays.boundaryLUTSize -
-                        static_cast<int32_t>(
-                            ceilf((distance.val + H.val) / H.val * ((float)arrays.boundaryLUTSize + 1) * 0.5f)),
-                    0, arrays.boundaryLUTSize - 2);
-    auto step = H / ((float)arrays.boundaryLUTSize + 1) * 2.f;
-    auto a = arrays.boundaryLUT[idx + 1] / vol;
-    auto b = arrays.boundaryLUT[idx] / vol;
-    if (distance >= H * 0.995f)
-      return (decltype((b - a) / step))(0.f);
-    else
-      return (b - a) / step;
-  }
-  hostDevice auto boundary_boundaryPressureLookup(float_u<SI::m> distance, float_u<SI::m> H,
-    float_u<SI::volume> vol, T &arrays) {
-    int32_t idx =
-        math::clamp(arrays.boundaryLUTSize -
-                        static_cast<int32_t>(
-                            ceilf((distance.val + H.val) / H.val * ((float)arrays.boundaryLUTSize + 1) * 0.5f)),
-                    0, arrays.boundaryLUTSize - 1);
-    if (distance >= H * 0.995f)
-      return (decltype(arrays.boundaryPressureLUT[idx] / vol))(0.f);
-    else
-      return arrays.boundaryPressureLUT[idx] / vol;
-  }
-  hostDevice auto boundary_boundaryPressureGradientLookup(float_u<SI::m> distance, float_u<SI::m> H,
-    float_u<SI::volume> vol, T &arrays) {
-    int32_t size = arrays.boundaryLUTSize;
-    auto volumeb = PI4O3 * math::power<3>(arrays.radius);
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-  
-    auto step = Hb / ((float)size + 1) * 2.f;
-    float_u<SI::m> h_0(1.2517599643209638f);
-    auto h_c = H / kernelSize();
-    auto ratio = h_0 / h_c;
-  
-    int32_t idx = math::clamp((int32_t)size - math::castTo<int32_t>(math::floorf((distance + Hb) / step)), 0,
-                              (int32_t)size - 1);
-    if (distance >= H * 0.995f)
-      return (decltype(arrays.boundaryPressureLUT[idx] / vol))(0.f);
-    else
-      return arrays.boundaryPressureLUT[idx] / vol * ratio;
-  }
-  hostDevice auto boundary_xbarLookup(float_u<SI::m> distance, float_u<SI::m> H, float_u<SI::volume> vol,
-    T &arrays) {
-    int32_t size = arrays.boundaryLUTSize;
-  
-    auto step = H / ((float)size + 1) * 2.f;
-    float_u<SI::m> h_0(1.2517599643209638f);
-    auto h_c = H / kernelSize();
-    auto hratio = h_0 / h_c;
-  
-    int32_t idx = math::clamp((int32_t)size - math::castTo<int32_t>(math::floorf((distance + H) / step)), 0,
-                              (int32_t)size - 1);
-  
-    return pair<value_unit<float, SI::derived_unit<SI::recip_3<SI::m>, SI::recip_2<SI::m>> /*SI::SI_Unit<SI::Base::m, ratio<-5, 1>>*/>,
-                float_u<SI::recip<SI::volume>>>{arrays.xbarLUT[idx] / vol / hratio,
-                                                arrays.boundaryLUT[idx] / vol / hratio};
-  }
-  hostDevice auto boundary_ctrLookup(float_u<SI::m> distance, float_u<SI::m> H, float_u<SI::volume>,
-    T &arrays) {
-    int32_t idx =
-        math::clamp(arrays.boundaryLUTSize -
-                        math::castTo<int32_t>(
-                            math::ceilf((distance + H) / H * ((float)arrays.boundaryLUTSize + 1) * 0.5f)),
-                    0, arrays.boundaryLUTSize - 1);
-    return arrays.ctrLUT[idx];
-  }
-  hostDevice auto boundary_spline4() {
-    auto volumeb = basicVolume;
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-    auto val = boundary_boundaryLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays) * volumeb;
-    if (POS.val.w < 1e20f)
-      return val;
-    else 
-      return val * 0.f;
-  }
-  hostDevice auto boundary_spikyGradient() {
-    float4_u<> n{POS.val.x, POS.val.y, POS.val.z, 0.f};
-    auto val = n * boundary_boundaryPressureGradientLookup(float_u<SI::m>(POS.val.w), H, vol, arrays);
-    if (POS.val.w < 1e20f)
-      return val;
-    else 
-      return val * 0.f;
-  }
-  hostDevice auto boundary_splineGradient() {
-    auto volumeb = basicVolume;
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-    float4_u<> n{POS.val.x, POS.val.y, POS.val.z, 0.f};
-    auto val = n * boundary_boundaryGradientLookup(float_u<SI::m>(POS.val.w), H, vol, arrays);
-    if (POS.val.w < 1e20f)
-      return val;
-    else 
-      return val * 0.f;
-  }
-  hostDevice auto boundary_xBar() {
-    auto volumeb = basicVolume;
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-    auto values = boundary_xbarLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays);
-    if (POS.val.w < 1e20f)
-      return pair<float_u<SI::recip_2<SI::m>>, float_u<SI::recip<SI::volume>>>{values.first * volumeb,
-                                                                               values.second};
-    else
-      return pair<float_u<SI::recip_2<SI::m>>, float_u<SI::recip<SI::volume>>>{
-          float_u<SI::recip_2<SI::m>>{0.f}, float_u<SI::recip<SI::volume>>{0.f}};
-  }
-  hostDevice auto boundary_count() {
-    auto volumeb = basicVolume;
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-    if (POS.val.w < 1e20f)
-      return boundary_ctrLookup(float_u<SI::m>(POS.val.w), Hb, volumeb, arrays);
-    else
-      return int32_t(0);
-  }
-  #ifdef __CUDA_ARCH__
-  hostDevice auto volumeDistance() {
-    auto H = float_u<SI::m>(position.val.w * Kernel<kernel_kind::spline4>::kernel_size());
-  
-    for (int32_t i = 0; i < arrays.volumeBoundaryCounter; ++i) {
-      float4_u<SI::m> d_min = arrays.volumeBoundaryMin[i];
-      float4_u<SI::m> d_max = arrays.volumeBoundaryMax[i];
-  
-    if ((d_min.val.x < position.val.x) && (d_min.val.y < position.val.y) && (d_min.val.z < position.val.z) &&
-      (d_max.val.x > position.val.x) && (d_max.val.y > position.val.y) && (d_max.val.z > position.val.z)) {
-        float4_u<void_unit_ty> d_p = (position - d_min) / (d_max - d_min);
-        float4_u<void_unit_ty> n =
-            tex3D<float4>(arrays.volumeBoundaryVolumes[i], d_p.val.x, d_p.val.y, d_p.val.z);
-        float d = n.val.w;
-        n.val.w = 0.f;
-        math::normalize3(n);
-        n.val.w = d;
-  
-        if (d < H){
-          POS_vol = n;
-          return;
-        }
-      }
-    }
-    POS_vol = float4_u<>{0.f, 0.f, 0.f, 1e21f};
-  }
-  #else
-  hostDevice auto volumeDistance() {
-    POS_vol = float4_u<>{0.f, 0.f, 0.f, 1e21f};
-  }
-  #endif
-  hostDevice auto volume_spline4() {
-    auto volumeb = basicVolume;
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-    auto val = boundary_boundaryLookup(float_u<SI::m>(POS_vol.val.w), Hb, volumeb, arrays) * volumeb;
-    if (POS_vol.val.w < 1e20f)
-      return val;
-    else
-      return val * 0.f;
-  }
-  hostDevice auto volume_spikyGradient() {
-    float4_u<> n{POS_vol.val.x, POS_vol.val.y, POS_vol.val.z, 0.f};
-  
-    auto val = n * boundary_boundaryPressureGradientLookup(float_u<SI::m>(POS.val.w), H, vol, arrays);
-    if (POS.val.w >= H)
-      return val * 0.f;
-    return val;
-  }
-  hostDevice auto volume_splineGradient() {
-    auto volumeb = basicVolume;
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-    float4_u<> n{POS_vol.val.x, POS_vol.val.y, POS_vol.val.z, 0.f};
-    auto val = n * boundary_boundaryGradientLookup(float_u<SI::m>(POS_vol.val.w), H, vol, arrays);
-    if (POS.val.w >= H)
-      return val * 0.f;
-    return val;
-  }
-  hostDevice auto volume_xBar() {
-    auto volumeb = basicVolume;
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-    auto values = boundary_xbarLookup(float_u<SI::m>(POS_vol.val.w), Hb, volumeb, arrays);
-    if (POS_vol.val.w < 1e20f)
-      return pair<float_u<SI::recip_2<SI::m>>, float_u<SI::recip<SI::volume>>>{values.first * volumeb,
-                                                                               values.second};
-    else
-      return pair<float_u<SI::recip_2<SI::m>>, float_u<SI::recip<SI::volume>>>{
-          float_u<SI::recip_2<SI::m>>{0.f}, float_u<SI::recip<SI::volume>>{0.f}};
-  }
-  hostDevice auto volume_count() {
-    auto volumeb = basicVolume;
-    auto hb = support_from_volume(volumeb);
-    auto Hb = hb * kernelSize();
-    if (POS_vol.val.w < 1e20f)
-      return boundary_ctrLookup(float_u<SI::m>(POS_vol.val.w), Hb, volumeb, arrays);
-    else
-      return int32_t(0);
-  }
+#define GW_ib(k,j) boundary::splineGradient(arrays.position[i], arrays.volume[i], arrays.density[i], arrays, k, j)
+#define pGW_ib GW_ib(boundary::kind::plane, -1)
+#define vGW_ib(j) GW_ib(boundary::kind::volume, j)
+//#define bGW_ib GW_ib(boundary::kind::both, -1)
 
+#define PW_ib(k,j) boundary::spiky(arrays.position[i], arrays.volume[i], arrays.density[i], arrays, k, j)
+#define pPW_ib PW_ib(boundary::kind::plane, -1)
+#define vPW_ib(j) PW_ib(boundary::kind::volume, j)
+//#define bPW_ib PW_ib(boundary::kind::both, -1)
 
-  hostDevice float4_u<SI::m> point1Plane(float4_u<void_unit_ty> E, float4_u<SI::m> P) {
-    auto d = math::planeDistance(E, P);
-    return P - d * E;
-  }
-  hostDevice float4_u<SI::m> point2Plane(float4_u<void_unit_ty> E0, float4_u<void_unit_ty> E1,
-                                               float4_u<SI::m> P) {
-    auto E2 = math::cross(E0, E1);
-    auto det = math::sqlength3(E2);
-    float4_u<SI::m> linePoint((((math::cross(E2, E1) * E0.val.w) + (math::cross(E0, E2) * E1.val.w)) / det).val);
-    auto lineDirection = math::normalize3(E2);
-    auto diff = P - linePoint;
-    auto distance = math::dot3(diff, lineDirection);
-    return linePoint + lineDirection * distance;
-  }
-  hostDevice float4_u<SI::m> point3Plane(float4_u<void_unit_ty> E0, float4_u<void_unit_ty> E1,
-                                               float4_u<void_unit_ty> E2, float4_u<SI::m>) {
-    auto a = -E0.val.w * math::cross(E1, E2);
-    auto b = -E1.val.w * math::cross(E2, E0);
-    auto c = -E2.val.w * math::cross(E0, E1);
-    auto d = math::dot3(E0, math::cross(E1, E2));
-    return float4_u<SI::m>(((a + b + c) / d).val);
-  }
-  hostDevice void POSfunction() {
-    auto volume = PI4O3 * math::power<3>(arrays.radius);
-    auto h = support_from_volume(volume);
-    auto H = h * kernelSize();
-  
-    float4_u<void_unit_ty> e0, e1, e2;
-    int32_t counter = 0;
-    for (int32_t it = 0; it < arrays.boundaryCounter; ++it) {
-      auto plane = arrays.boundaryPlanes[it];
-      if (math::planeDistance(plane, position) < H) {
-        switch (counter) {
-        case 0:
-          e0 = plane;
-          ++counter;
-          break;
-        case 1:
-          e1 = plane;
-          ++counter;
-          break;
-        case 2:
-          e2 = plane;
-          ++counter;
-          break;
-        default:
-          break;
-        }
-      }
-    }
-    float4_u<SI::m> c;
-    float4_u<void_unit_ty> Hn;
-    switch (counter) {
-    case 1:
-      c = point1Plane(e0, position);
-      Hn = e0;
-      break;
-    case 2:
-      c = point2Plane(e0, e1, position);
-      Hn = e0 + e1;
-      break;
-    case 3:
-      c = point3Plane(e0, e1, e2, position);
-      Hn = e0 + e1 + e2;
-      break;
-    default:
-    POS = float4_u<>(0.f, 0.f, 0.f, 1e21f);
-      distance = 1e21f;
-      return;
-    }
-    auto Hp = c + Hn * H;
-    auto diff = Hp - position;
-    //auto diffL = math::length3(diff);
-    auto Hd = math::normalize3(diff);
-    auto pos = Hp - H * Hd;
-  
-    auto plane = Hd;
-    plane.val.w = -math::dot3(pos, plane).val;
-    auto distance = math::planeDistance(plane, position);
-    plane.val.w = distance.val;
-    POS = plane;
-    distance = math::getValue(math::get<4>(plane));
-  }
-
-public:
-  hostDevice SWH2(T& arrays_a, float4_u<SI::m> p_a, float_u<SI::volume> vol_a):arrays(arrays_a), position(p_a), vol(vol_a){
-    POSfunction();
-    volumeDistance();
-    H = float_u<SI::m>(position.val.w * Kernel<kernel_kind::spline4>::kernel_size());
-  }
-  hostDevice auto spline4(SWHkind kind = SWHkind::both) {
-    if(kind == SWHkind::volumes)
-      return volume_spline4();
-    if(kind == SWHkind::planes)
-      return boundary_spline4();
-    return volume_spline4() + boundary_spline4();
-  }
-  hostDevice auto spikyGradient(SWHkind kind = SWHkind::both) {
-    if(kind == SWHkind::volumes)
-      return volume_spikyGradient();
-    if(kind == SWHkind::planes)
-      return boundary_spikyGradient();
-    return volume_spikyGradient() + boundary_spikyGradient();
-  }
-  hostDevice auto splineGradient(SWHkind kind = SWHkind::both) {
-    if(kind == SWHkind::volumes)
-      return volume_splineGradient();
-    if(kind == SWHkind::planes)
-      return boundary_splineGradient();
-    return volume_splineGradient() + boundary_splineGradient();
-  }
-  hostDevice auto xBar(SWHkind kind = SWHkind::both) {
-    auto x1 = volume_xBar();
-    auto x2 = boundary_xBar();
-    if(kind == SWHkind::both){
-      x1.first += x2.first;
-      x1.second += x2.second;
-      return x1;
-    }
-    if(kind == SWHkind::volumes)
-      return x1;
-    return x2;
-  }
-  hostDevice auto count(SWHkind kind = SWHkind::both) {
-    if(kind == SWHkind::volumes)
-      return volume_count();
-    if(kind == SWHkind::planes)
-      return boundary_count();
-    return volume_count() + boundary_count();
-  }
-};
-
-
-// namespace math {
-// hostDeviceInline float4_u<SI::m> point1Plane(float4_u<void_unit_ty> E, float4_u<SI::m> P) {
-//   auto d = math::planeDistance(E, P);
-//   return P - d * E;
-// }
-// hostDeviceInline float4_u<SI::m> point2Plane(float4_u<void_unit_ty> E0, float4_u<void_unit_ty> E1,
-//                                              float4_u<SI::m> P) {
-//   auto E2 = math::cross(E0, E1);
-//   auto det = math::sqlength3(E2);
-//   float4_u<SI::m> linePoint((((math::cross(E2, E1) * E0.val.w) + (math::cross(E0, E2) * E1.val.w)) / det).val);
-//   auto lineDirection = math::normalize3(E2);
-//   auto diff = P - linePoint;
-//   auto distance = math::dot3(diff, lineDirection);
-//   return linePoint + lineDirection * distance;
-// }
-// hostDeviceInline float4_u<SI::m> point3Plane(float4_u<void_unit_ty> E0, float4_u<void_unit_ty> E1,
-//                                              float4_u<void_unit_ty> E2, float4_u<SI::m>) {
-//   auto a = -E0.val.w * math::cross(E1, E2);
-//   auto b = -E1.val.w * math::cross(E2, E0);
-//   auto c = -E2.val.w * math::cross(E0, E1);
-//   auto d = math::dot3(E0, math::cross(E1, E2));
-//   return float4_u<SI::m>(((a + b + c) / d).val);
-// }
-// } // namespace math
-
-
-// namespace boundary {
-// template <typename T> hostDeviceInline float4_u<void_unit_ty> POSfunction(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.POS;
-// }
-// template <typename T> hostDeviceInline auto spline4(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.spline4(SWHkind::planes);
-// }
-// template <typename T> hostDeviceInline auto spikyGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-//   SWH2<T> swh(arrays,position,vol);
-//   return swh.spikyGradient(SWHkind::planes);
-// }
-// template <typename T> hostDeviceInline auto splineGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-//   SWH2<T> swh(arrays,position,vol);
-//   return swh.splineGradient(SWHkind::planes);
-// }
-// template <typename T> hostDeviceInline auto xBar(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.xBar(SWHkind::planes);
-// }
-// template <typename T> hostDeviceInline auto count(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.count(SWHkind::planes);
-// }
-// } // namespace boundary
-
-// namespace volumeBoundary {
-// template <typename T> hostDeviceInline auto volumeDistance(float4_u<SI::m> tp, T &arrays) {
-//   SWH2<T> swh(arrays,tp,basicVolume);
-//   return swh.POS_vol;
-// }
-// template <typename T> hostDeviceInline auto spline4(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.spline4(SWHkind::volumes);
-// }
-// template <typename T>
-// hostDeviceInline auto spikyGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-//   SWH2<T> swh(arrays,position,vol);
-//   return swh.spikyGradient(SWHkind::volumes);
-// }
-// template <typename T>
-// hostDeviceInline auto splineGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-//   SWH2<T> swh(arrays,position,vol);
-//   return swh.splineGradient(SWHkind::volumes);
-// }
-// template <typename T> hostDeviceInline auto xBar(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.xBar(SWHkind::volumes);
-// }
-// template <typename T> hostDeviceInline auto count(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.count(SWHkind::volumes);
-// }
-// } // namespace volumeBoundary
-
-// namespace SWH {
-// template <typename T> hostDeviceInline auto spline4(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.spline4(SWHkind::both);
-// }
-// template <typename T>
-// hostDeviceInline auto spikyGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-//   SWH2<T> swh(arrays,position,vol);
-//   return swh.spikyGradient(SWHkind::both);
-// }
-// template <typename T>
-// hostDeviceInline auto splineGradient(float4_u<SI::m> position, float_u<SI::volume> vol, T &arrays) {
-//   SWH2<T> swh(arrays,position,vol);
-//   return swh.splineGradient(SWHkind::both);
-// }
-// template <typename T> hostDeviceInline auto xBar(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.xBar(SWHkind::both);
-// }
-// template <typename T> hostDeviceInline auto count(float4_u<SI::m> position, T &arrays) {
-//   SWH2<T> swh(arrays,position,basicVolume);
-//   return swh.count(SWHkind::both);
-// }
-
-// } // namespace SWH
-
-#define BoundaryPressureGradient(x) (SWH::spikyGradient(x, arrays.volume[i], arrays))
-#define BoundaryGradient(x) (SWH::splineGradient(x, arrays.volume[i], arrays))
-#define BoundaryKernel(x) (SWH::spline4(x, arrays) / arrays.volume[i])
-#define BoundaryParticleCount(x) (SWH::count(x, arrays))
-#define BoundaryXBar(x) (SWH::xBar(x, arrays))
-
-#define GPW_ib (SWH::spikyGradient(pos[i], arrays.volume[i], arrays))
-#define GW_ib (SWH::splineGradient(pos[i], arrays.volume[i], arrays))
-#define W_ib (SWH::spline4(pos[i], arrays) / arrays.volume[i])
+#define GPW_ib(k,j) boundary::spikyGradient(arrays.position[i], arrays.volume[i], arrays.density[i], arrays, k, j)
+#define pGPW_ib GPW_ib(boundary::kind::plane, -1)
+#define vGPW_ib(j) GPW_ib(boundary::kind::volume, j)
+//#define bGPW_ib GPW_ib(boundary::kind::both, -1)

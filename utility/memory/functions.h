@@ -27,6 +27,7 @@ template <typename T> auto prepareMemory2() {
 		using mem_t = std::decay_t<decltype(P::get_member(memory))>;
 		P::get_member(memory) = mem_t{ *P::ptr };
 	});
+	memory.debugArray = arrays::debugArray::ptr;
 
 	for_each_r(typename T::virtual_info_arrays{},
 		[&memory](auto x) { MemoryManager::instance().allocate(x, memory, true); });

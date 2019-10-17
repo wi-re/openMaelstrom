@@ -17,13 +17,14 @@
       "name": "XSPH",
       "units": true,
       "virtual_info": true,
-      "cell_info": false,
+      "cell_info": true,
       "boundaryInfo": true,
       "neighbor_info": true,
-      "depends_any": [ { "xsph": true } ],
+      "depends_any": [ { "modules::xsph": true } ],
       "functions": [ "viscosity" ],
-      "parameters": [ "xsph_viscosity", "blendsteps" ],
+      "parameters": [ "xsph_viscosity", "blendSteps" ],
       "input": [ "position", "density", "volume", "lifetime" ],
+      "output": [ "acceleration" ],
       "swap": [ "velocity" ]
     },
     "monaghanViscosity": {
@@ -32,11 +33,14 @@
       "name": "Viscosity",
       "units": true,
       "neighbor_info": true,
-      "depends_any": [ { "viscosity": true } ],
-      "functions": [ "viscosity" ],
-      "parameters": [ "monaghan_viscosity", "blendsteps" ],
+      "cell_info": true,
+      "virtual_info": true,
+      "boundaryInfo": true,
+      "depends_any": [ { "modules::viscosity": true } ],
+      "functions": [ "viscosity", "drag" ],
+      "parameters": [ "monaghan_viscosity", "blendSteps", "boundaryViscosity" ],
       "input": [ "position", "density", "volume", "velocity", "lifetime" ],
-      "output": [ "acceleration" ] 
+      "output": [ "acceleration" ]
     },
     "AkinciTension": {
       "description": "Module used to provide surface tension based on the approaches by Akinci et. al.",
@@ -44,23 +48,28 @@
       "name": "AkinciTension",
       "units": true,
       "virtual_info": true,
+      "boundaryInfo": true,
+      "cell_info": true,
       "neighbor_info": true,
-      "depends_any": [ { "tension": "Akinci" } ],
+      "depends_any": [ { "modules::tension": "Akinci" } ],
       "functions": [ "tension" ],
-      "parameters": [ "tension_akinci" ],
+      "parameters": [ "tension_akinci", "rigidAdhesion_akinci", "boundaryAdhesion_akinci" ],
       "input": [ "velocity", "position", "density", "volume" ],
       "output": [ "acceleration" ],
       "temporary": [ "particleNormal" ]
     },
     "BenderVorticity": {
       "description": "Module used to provide a micropolar model for SPH to improve the vorticity of the simulation.",
-      "folder": "convection",
+      "folder": "vorticity",
       "name": "BenderVorticity",
       "units": true,
+      "cell_info": true,
       "neighbor_info": true,
-      "depends_any": [ { "vorticity": "Bender17" } ],
+      "virtual_info": true,
+      "boundaryInfo": true,
+      "depends_any": [ { "modules::vorticity": "Bender17" } ],
       "functions": [ "vorticity" ],
-      "parameters": [ "intertia_inverse", "vorticity_viscosity", "vorticity_nu_t", "tension_akinci" ],
+      "parameters": [ "intertiaInverse", "viscosityOmega", "vorticityCoeff" ],
       "input": [ "velocity", "position", "density", "volume" ],
       "output": [ "acceleration" ],
       "swap": [ "angularVelocity" ]
@@ -70,8 +79,9 @@
       "folder": "convection",
       "name": "GisslerDrag",
       "units": true,
+      "cell_info": true,
       "neighbor_info": true,
-      "depends_any": [ { "drag": "Gissler17" } ],
+      "depends_any": [ { "modules::drag": "Gissler17" } ],
       "functions": [ "drag" ],
       "parameters": [ "air_velocity", "tension_akinci" ],
       "input": [ "velocity", "position", "density", "volume" ],
@@ -94,13 +104,13 @@
       },
       "particleNormal": {
         "description": "Normal of the particle calculated to determine the surface tension of a particle.",
-        "depends_any": [ { "tension": "Akinci" } ],
+        "depends_any": [ { "modules::tension": "Akinci" } ],
         "type": "float4",
         "kind": "particleData"
       },
       "angularVelocity": {
         "description": "Contains the angular velocity of a particle, used to improve the vorticity of the simulaiton.",
-        "depends_any": [ { "vorticity": "Bender17" } ],
+        "depends_any": [ { "modules::vorticity": "Bender17" } ],
         "unit": "SI::velocity",
         "type": "float4",
         "kind": "particleData",
@@ -109,14 +119,14 @@
         "resort": true
       }
     }
-  },
+  }, 
   "uniforms":{
     "modules":{
       "pressure": {
         "identifier": "pressure",
         "name": "Used to select the incompressibility solver. IISPH, IISPH17 and DFSPH are valid options.",
         "type": "std::string",
-        "default": "IISPH"
+        "default": "DFSPH"
       },
       "volumeBoundary": {
         "identifier": "volumeBoundary",
@@ -155,13 +165,13 @@
         "default": "Bender17"
       }
     },
-    "particle_settings":{
+    "particle_settings": {
       "viscosity": {
         "identifier": "monaghan_viscosity",
         "name": "Artificial viscosity strength parameter. Useful value: 15.f.",
         "type": "float",
         "unit": "SI::velocity",
-        "default": "15.f",
+        "default": "5.f",
         "const": false,
         "range": {
           "min": "0.000f",
@@ -169,129 +179,169 @@
           "step": "0.1f"
         }
       },
-      "intertia_inverse": {
-        "identifier": "intertia_inverse",
-        "name": "Parameter used for the micropolar SPH model. Useful value: 0.5f.",
+      "boundaryViscosity": {
+        "identifier": "boundaryViscosity",
+        "name": "Artificial viscosity strength parameter. Useful value: 15.f.",
         "type": "float",
-        "default": "0.5f",
+        "unit": "SI::velocity",
+        "default": "0.0375f",
         "const": false,
-        "unit": "none",
         "range": {
           "min": "0.000f",
-          "max": "1.f",
-          "step": "0.01f"
+          "max": "50.f",
+          "step": "0.1f"
         }
       },
-      "vorticity_viscosity": {
-        "identifier": "vorticity_viscosity",
-        "name": "Parameter used for the micropolar SPH model. Useful value: 0.1f.",
-        "type": "float",
-        "default": "0.1f",
-        "const": false,
-        "unit": "none",
-        "range": {
-          "min": "0.000f",
-          "max": "1.f",
-          "step": "0.01f"
-        }
-      },
-      "vorticity_nu_t": {
-        "identifier": "vorticity_nu_t",
-        "name": "Parameter used for the micropolar SPH model. Useful value: 0.05f.",
-        "type": "float",
-        "default": "0.05f",
-        "const": false,
-        "unit": "none",
-        "range": {
-          "min": "0.000f",
-          "max": "1.f",
-          "step": "0.01f"
-        }
-      },
-      "xsph_viscosity": {
-        "identifier": "xsph_viscosity",
-        "name": "XSPH viscosity strenght parameter. Useful value: 0.05f.",
-        "type": "float",
-        "default": "0.05f",
-        "const": false,
-        "unit": "none",
-        "range": {
-          "min": "0.000f",
-          "max": "1.f",
-          "step": "0.01f"
-        }  
-      },
-      "tension_akinci": {
-        "identifier": "tension_akinci",
-        "name": "Strength of the surface tension for the akinci based surface tension model. Useful value: 0.1f.",
-        "type": "float",
-        "const": false,
-        "unit": "SI::acceleration",
-        "default": "0.015f",
-        "range": {
-          "min": "0.000f",
-          "max": "2.f",
-          "step": "0.01f"
-        }    
-      },
-      "air_velocity":{ 
+        "xsph_viscosity": {
+          "identifier": "xsph_viscosity",
+          "name": "XSPH viscosity strenght parameter. Useful value: 0.05f.",
+          "type": "float",
+          "default": "0.05f",
+          "const": false,
+          "unit": "none",
+          "range": {
+            "min": "0.000f",
+            "max": "1.f",
+            "step": "0.01f"
+          }
+        },
+        "rigidAdhesion_akinci": {
+          "identifier": "rigidAdhesion_akinci",
+          "name": "Strength of the surface tension for the akinci based surface tension model. Useful value: 0.1f.",
+          "type": "float",
+          "const": false,
+          "unit": "SI::acceleration",
+          "default": "0.f",
+          "range": {
+            "min": "0.000f",
+            "max": "2.f",
+            "step": "0.01f"
+          }
+        },
+        "boundaryAdhesion_akinci": {
+          "identifier": "boundaryAdhesion_akinci",
+          "name": "Strength of the surface tension for the akinci based surface tension model. Useful value: 0.1f.",
+          "type": "float",
+          "const": false,
+          "unit": "SI::acceleration",
+          "default": "0.f",
+          "range": {
+            "min": "0.000f",
+            "max": "2.f",
+            "step": "0.01f"
+          }
+        },
+        "tension_akinci": {
+          "identifier": "tension_akinci",
+          "name": "Strength of the surface tension for the akinci based surface tension model. Useful value: 0.1f.",
+          "type": "float",
+          "const": false,
+          "unit": "SI::acceleration",
+          "default": "0.15f",
+          "range": {
+            "min": "0.000f",
+            "max": "2.f",
+            "step": "0.01f"
+          }
+        },
+        "air_velocity": {
           "identifier": "air_velocity",
           "name": "Global air velocity of the simulation for air drag effects. Useful value: {0,0,0,0}.",
           "type": "float4",
           "const": false,
           "unit": "SI::velocity",
-          "default": "1.f,0.f,0.f,0.f",
+          "default": "0.f,0.f,0.f,0.f",
           "range": {
-          "min": "-10.f,-10.f,-10.f,0.f",
-          "max": "10.f,10.f,10.f,0.f",
-          "step": "0.01f,0.01f,0.01f,0.f"
-          }      
-        }
-
-    },
-    "simulation_settings":{
-      "external_force": {
-        "identifier": "external_force",
-        "name": "External force being applied to the particles, e.g. gravity. Useful value: {0,0,-9.81,0}",
-        "type": "float4",
-        "default": "0.f,0.f,-9.81f,0.f",
-        "unit": "SI::acceleration",
-        "const": false,
-        "range": { 
-          "min": "-10.f,-10.f,-10.f,0.f",
-          "max": "10.f,10.f,10.f,0.f",
-          "step": "0.01f,0.01f,0.01f,0.f"
+            "min": "-10.f,-10.f,-10.f,0.f",
+            "max": "10.f,10.f,10.f,0.f",
+            "step": "0.01f,0.01f,0.01f,0.f"
+          }
         }
       },
-      "timestep_min": {
-        "identifier": "timestep_min",
-        "name": "Lowest allowed timestep for the simulation. Useful value: 0.001f",
-        "type": "float",
-        "default": "0.001f",
-        "unit": "SI::s",
-        "visible": true,
-        "const": false,
-        "range": {
-          "min": "0.001f",
-          "max": "0.01f",
-          "step": "0.001f"
+      "vorticitySettings": {
+        "intertiaInverse": {
+          "identifier": "intertiaInverse",
+          "name": "Parameter used for the micropolar SPH model. Useful value: 0.5f.",
+          "type": "float",
+          "default": "0.5f",
+          "const": false,
+          "unit": "none",
+          "range": {
+            "min": "0.000f",
+            "max": "1.f",
+            "step": "0.01f"
+          }
         },
-        "presets": [ "0.001f", "0.01f", "0.02f" ]
+        "viscosityOmega": {
+          "identifier": "viscosityOmega",
+          "name": "Parameter used for the micropolar SPH model. Useful value: 0.1f.",
+          "type": "float",
+          "default": "0.1f",
+          "const": false,
+          "unit": "none",
+          "range": {
+            "min": "0.000f",
+            "max": "1.f",
+            "step": "0.01f"
+          }
+        },
+        "vorticityCoeff": {
+          "identifier": "vorticityCoeff",
+          "name": "Parameter used for the micropolar SPH model. Useful value: 0.05f.",
+          "type": "float",
+          "default": "0.05f",
+          "const": false,
+          "unit": "none",
+          "range": {
+            "min": "0.000f",
+            "max": "1.f",
+            "step": "0.01f"
+          }
+        }
       },
-      "timestep_max": {
-        "identifier": "timestep_max",
-        "name": "Largest allowed timestep for the simulation. Useful value: 0.01f",
-        "type": "float",
-        "default": "0.01f",
-        "visible": true,
-        "const": false,
-        "unit": "SI::s",
-        "range": {
-          "min": "0.001f",
-          "max": "0.01f",
-          "step": "0.001f"
+      "simulation_settings": {
+        "external_force": {
+          "identifier": "external_force",
+          "name": "External force being applied to the particles, e.g. gravity. Useful value: {0,0,-9.81,0}",
+          "type": "float4",
+          "default": "0.f,0.f,-9.81f,0.f",
+          "unit": "SI::acceleration",
+          "const": false,
+          "range": {
+            "min": "-10.f,-10.f,-10.f,0.f",
+            "max": "10.f,10.f,10.f,0.f",
+            "step": "0.01f,0.01f,0.01f,0.f"
+          }
+        },
+        "timestep_min": {
+          "identifier": "timestep_min",
+          "name": "Lowest allowed timestep for the simulation. Useful value: 0.001f",
+          "type": "float",
+          "default": "0.001f",
+          "unit": "SI::s",
+          "visible": true,
+          "const": false,
+          "range": {
+            "min": "0.001f",
+            "max": "0.01f",
+            "step": "0.001f"
+          },
+          "presets": [ "0.001f", "0.01f", "0.02f" ]
+        },
+        "timestep_max": {
+          "identifier": "timestep_max",
+          "name": "Largest allowed timestep for the simulation. Useful value: 0.01f",
+          "type": "float",
+          "default": "0.01f",
+          "visible": true,
+          "const": false,
+          "unit": "SI::s",
+          "range": {
+            "min": "0.001f",
+            "max": "0.01f",
+            "step": "0.001f"
+          }
         }
       }
     }
-  }
 }     

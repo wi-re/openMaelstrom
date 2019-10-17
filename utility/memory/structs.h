@@ -1,6 +1,7 @@
 #pragma once
 #include <utility/memory/manager.h>
 #include <utility/memory/functions.h>
+#include <utility/helpers/arguments.h>
 enum struct inst_t { array_clear, function_call };
 template <typename arr> struct array_clear {
 	using type = arr;
@@ -63,14 +64,23 @@ template <typename T> struct function_call {
 	void operator()() {
 		if (!validFn())
 			return;
+		if (!logger::silent)
+			std::cout << "Calling function " << functionName << std::endl;
 		if (this->timer == nullptr && this->has_timer)
 			this->timer = TimerManager::createGPUTimer(functionName, c, graph);
 
 		if (this->timer)
 			this->timer->start();
-
-		callFn();
-
+		try {
+			callFn();
+		}
+		catch (...) {
+			std::cerr << "Caught exception when calling " << functionName << std::endl;
+			std::cerr << boost::current_exception_diagnostic_information() << std::endl;
+			// QApplication::quit();
+			// std::cerr << "Caught exception while running simulation: " << e.what() << std::endl;
+			throw;
+		}
 		if (this->timer)
 			this->timer->stop();
 	}

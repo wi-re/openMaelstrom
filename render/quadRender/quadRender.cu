@@ -46,20 +46,65 @@ struct Sphere {
     return (t = b - disc) > epsilon ? t : ((t = b + disc) > epsilon ? t : 0);
   }
 };
+struct Box {
+	float3 min, max, emi, col;
+	Refl_t refl;
+	__device__ float intersect(const Ray &worldRay) const {
+		float tmin = ((worldRay.dir.x < 0.f ? max.x : min.x) - worldRay.orig.x) / worldRay.dir.x;
+		float tmax = ((worldRay.dir.x < 0.f ? min.x : max.x) - worldRay.orig.x) / worldRay.dir.x;
+		float tymin = ((worldRay.dir.y < 0.f ? max.y : min.y) - worldRay.orig.y) / worldRay.dir.y;
+		float tymax = ((worldRay.dir.y < 0.f ? min.y : max.y) - worldRay.orig.y) / worldRay.dir.y;
 
-__device__ Sphere spheres[] = {
-    {16, {128.0f, 128, 128}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
-    //{2, {0.f, 24.f, 0}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
-    //{1, {0.f, 0.f, 24.f}, {6, 4, 2}, {0.f, 0.f, 0.f}, DIFF},
-	 
-    {10000, {50.0f, 40.8f, -1060}, {0.55, 0.55, 0.55}, {0.175f, 0.175f, 0.175f}, DIFF},
+		if ((tmin > tymax) || (tymin > tmax))
+			return 0.f;
+		if (tymin > tmin)
+			tmin = tymin;
+		if (tymax < tmax)
+			tmax = tymax;
 
-    {100000, {0.0f, 0, -100000.}, {0, 0, 0}, {0.5f, 0.0f, 0.0f}, COAT},
-    {100000, {0.0f, 0, -100000.1}, {0, 0, 0}, {0.3f, 0.3f, 0.3f}, DIFF}, 
+		float tzmin = ((worldRay.dir.z < 0.f ? max.z : min.z) - worldRay.orig.z) / worldRay.dir.z;
+		float tzmax = ((worldRay.dir.z < 0.f ? min.z : max.z) - worldRay.orig.z) / worldRay.dir.z;
 
-    //{1.1, {1.6, 1.0, 0}, {0, 0.0, 0}, {0.9f, .9f, 0.9f}, SPEC},
-    //{0.3, {0.0f, -0.4, 4}, {.0, 0., .0}, {0.9f, 0.9f, 0.9f}, DIFF},
+		if ((tmin > tzmax) || (tzmin > tmax))
+			return 0.f;
+		if (tzmin > tmin)
+			tmin = tzmin;
+		if (tzmax < tmax)
+			tmax = tzmax;
+		return (tmin < 0.f && tmax > 0.f) || (tmin > 0.f && tmax > 0.f) ? (tmin < 0.f ? tmax : tmin) : 0.f;
+	}
+	__device__ float3 normal(const float3& hitPosition) const {
+		if (min.x == -FLT_MAX || min.y == -FLT_MAX || min.z == -FLT_MAX) {
+			return float3{ min.x == -FLT_MAX ? 0.f : 1.f, min.y == -FLT_MAX ? 0.f : 1.f, min.z == -FLT_MAX ? 0.f : 1.f };
+		}
+		constexpr auto epsilon = 1e-6f;
+		auto c = (min + max) * 0.5f;
+		auto prel = hitPosition - c;
+		auto d = math::abs((min - max) * 0.5f);
+		auto n = math::castTo<int3>(prel / d * (1.f + epsilon));
+		auto nc = char3{ static_cast<char>(n.x), static_cast<char>(n.y), static_cast<char>(n.z) };
+		auto normal = math::castTo<float3>(nc);
+		return normal;
+	}
 };
+
+__device__ __constant__ Box boxes[] = {
+	{{-25.f, -25.f, 96.f},{25.f,25.f, 132.f},{1.f,1.f,1.f}, {0.f,0.f,0.f}, DIFF}
+	,{{190.f, -192.f, -192.f},{192.f,192.f, 192.f},{1.f,1.f,1.f}, {0.f,0.f,0.f}, DIFF}
+	//,{ {25, -FLT_MAX, -FLT_MAX},{32, FLT_MAX, FLT_MAX},{0.f,0.f,0.f}, {1.f, 1.f, 1.f}, DIFF}
+	//,{ {-FLT_MAX, -25.f, -FLT_MAX},{32, FLT_MAX, FLT_MAX},{0.f,0.f,0.f}, {1.f, 1.f, 1.f}, DIFF}
+};
+__device__ __constant__ Sphere spheres[] = {
+	//{16, {192.0f, 192, 192}, {1.f, 1.f, 1.f}, {0.f, 0.f, 0.f}, DIFF},
+	{32, {-96, 0, 16}, {0, 0, 0}, {1.f, 1.f, 1.f}, SPEC},
+	{32, {-96, -64, 16}, {0, 0, 0}, {0.5f, 0.f, 0.f}, DIFF},
+	{32, {-96, 64, 64}, {0, 0, 0}, {1.0f, 1.f, 1.f}, REFR},
+	{10000, {50.0f, 40.8f, -1060}, {0.35f, 0.35f, 0.35f}, {0.075f, 0.075f, 0.075f}, DIFF},
+	//{10000, {50.0f, 40.8f, -1060}, {0.55, 0.55, 0.55}, {0.175f, 0.175f, 0.175f}, DIFF},
+	//{10000, {50.0f, 40.8f, -1060}, {0.f,0.f,0.f}, {0.f,0.f,0.f}, DIFF},
+
+	{100000, {0.0f, 0, -100000.}, {0, 0, 0}, {0.2f, 0.2f, 0.2f}, DIFF},
+	{100000, {0.0f, 0, -100000.1}, {0, 0, 0}, {0.3f, 0.3f, 0.3f}, DIFF} };
 
 __device__ bool RayIntersectsBox(const gpuBVH& bvh, const float3 &originInWorldSpace, const float3 &rayInWorldSpace, int boxIdx) {
   float Tnear, Tfar;
@@ -69,14 +114,14 @@ __device__ bool RayIntersectsBox(const gpuBVH& bvh, const float3 &originInWorldS
   float2 limits;
 
 #define CHECK_NEAR_AND_FAR_INTERSECTION(c)                                                                             \
-  if (rayInWorldSpace.##c == 0.f) {                                                                                    \
-    if (originInWorldSpace.##c < limits.x)                                                                             \
+  if (rayInWorldSpace.c == 0.f) {                                                                                    \
+    if (originInWorldSpace.c < limits.x)                                                                             \
       return false;                                                                                                    \
-    if (originInWorldSpace.##c > limits.y)                                                                             \
+    if (originInWorldSpace.c > limits.y)                                                                             \
       return false;                                                                                                    \
   } else {                                                                                                             \
-    float T1 = (limits.x - originInWorldSpace.##c) / rayInWorldSpace.##c;                                              \
-    float T2 = (limits.y - originInWorldSpace.##c) / rayInWorldSpace.##c;                                              \
+    float T1 = (limits.x - originInWorldSpace.c) / rayInWorldSpace.c;                                              \
+    float T2 = (limits.y - originInWorldSpace.c) / rayInWorldSpace.c;                                              \
     if (T1 > T2) {                                                                                                     \
       float tmp = T1;                                                                                                  \
       T1 = T2;                                                                                                         \
@@ -231,6 +276,15 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
 			kCA = ktCA;
 		}
 	}
+	for (int32_t box_id = 0; box_id < int32_t(sizeof(boxes) / sizeof(Box)); box_id++) {
+		Box &box = boxes[box_id];
+		float d = box.intersect(Ray(rayorig, raydir));
+		if (d && d < scene_t) {
+			scene_t = d;
+			sphere_id = box_id;
+			geomtype = 3;
+		}
+	}
 
 
     if (scene_t > 1e20f)
@@ -245,7 +299,18 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
       refltype = sphere.refl;
       emit = float3{sphere.emi.x, sphere.emi.y, sphere.emi.z};
       accucolor += (mask * emit);
-    }
+    } 
+	if (geomtype == 3) {
+		Box& box = boxes[sphere_id];
+		auto x = originInWorldSpace + rayInWorldSpace * scene_t;
+		n = box.normal(x);
+		nl = math::dot(n, rayInWorldSpace) < 0 ? n : n * -1;
+		f = float3{ box.col.x, box.col.y, box.col.z };
+		refltype = box.refl;
+		emit = float3{ box.emi.x, box.emi.y, box.emi.z };
+		accucolor += (mask * emit);
+	}
+
     if (geomtype == 2) {
       pBestTri = &sceneBVH[bvh_idx].pTriangles[triangle_id];
       x = pointHitInWorldSpace;
@@ -283,7 +348,7 @@ __device__ float3 path_trace(curandState *randstate, float3 originInWorldSpace, 
       float3 colour = float3{0.9f, 0.3f, 0.0f};
 	  if (bvh_idx == 0) {
 		  colour = float3{ 0.05098f, 0.23137f, 0.494177f };
-		  refltype = DIFF;
+		  refltype = REFR;
 		  //refltype = COAT;
 	  }
 	  if (bvh_idx == 1) {

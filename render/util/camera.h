@@ -3,13 +3,13 @@
 #include <QtGui/QInputEvent>
 #include <render/qGLWidget/base_renderer.h>
 
-#include <QOpenGLFunctions_3_3_Core>
+#include <QOpenGLFunctions_4_5_Compatibility>
 
 /** This class represents the main camera of the simulation with a first person
  * style camera. The camera is built using a singleton instance for easier
  * access, i.e. in other renderers. The uniforms are created by the openGL
  * Widget.**/
-struct Camera : QOpenGLFunctions_3_3_Core {
+struct Camera : QOpenGLFunctions_4_5_Compatibility {
 private:
   Camera() { initializeOpenGLFunctions(); };
 
@@ -33,6 +33,7 @@ public:
   void setTranslation(QVector3D translation);
   void translate(QVector3D delta);
   void update(float deltaTime);
+  void maximizeCoverage();
 
   virtual void setKeyboardModifiers(QInputEvent *event);
   virtual void resizeEvent(QResizeEvent *event);
@@ -61,6 +62,7 @@ public:
   float rotationSpeed = 0.5f;
   float movementSpeed = 1.0f;
 
+  bool tracking = false;
   bool dirty = true;
   struct {
     QMatrix4x4 perspective;

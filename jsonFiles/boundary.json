@@ -7,8 +7,8 @@
       "units": true,
       "cell_info": false,
       "neighbor_info": false,
-      "depends_any": [ { "volumeBoundary": true } ],
-      "functions": [ "init_volumes" ],
+      "depends_any": [ { "modules::volumeBoundary": true } ],
+      "functions": [ "init_volumes","update" ],
       "parameters": [ "boundaryDampening", "volumeBoundaryCounter" ],
       "input": [ "volumeBoundaryVolumes", "volumeBoundaryDimensions", "volumeBoundaryMin", "volumeBoundaryMax" ],
       "swap": [ "position", "velocity" ]  
@@ -20,35 +20,103 @@
       "units": true,
       "functions": [ "correct_position", "correct_velocity", "update_boundaries"],
       "parameters": [ "boundaryCounter", "boundaryDampening"],
-      "output": [ "boundaryPlanes"],
-      "depends_any": [ { "movingBoundaries": true } ],
+      "output": [ "boundaryPlanes", "boundaryPlaneVelocity" ],
+      "depends_any": [ { "modules::movingBoundaries": true } ],
       "swap": [ "position", "velocity" ]
     }
   },
   "arrays":{
+    "rigidBodyArrays":{
+      "rigidDensities": {
+        "description": "TODO", 
+        "unit":"SI::density",
+        "type": "float",
+        "kind": "rigidData"
+      },
+      "rigidVolumes": {
+        "description": "TODO", 
+        "unit":"SI::volume",
+        "type": "float",
+        "kind": "rigidData"
+      },
+      "rigidLinearVelocities": {
+        "description": "TODO",
+        "type": "float4",
+        "kind": "rigidData",
+        "unit": "SI::velocity"
+      },
+      "rigidAVelocities": {
+        "description": "TODO",
+        "type": "float3",
+        "kind": "rigidData",
+        "unit": "SI::velocity"
+      },
+      "rigidOrigins": {
+        "description": "TODO",
+        "type": "float3",
+        "kind": "rigidData",
+        "unit": "SI::velocity"
+      },
+      "rigidQuaternions": {
+        "description": "TODO",
+        "type": "float4",
+        "kind": "rigidData",
+        "unit": "SI::velocity"
+      }
+    },
     "boundaryArrays": {
-      "boundaryLUT": {
+      "splineLUT": {
         "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
         "unit": "void",
         "type": "float",
         "kind": "customData"
       },
-      "boundaryPressureLUT": {
+      "offsetLUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "none",
+        "type": "float",
+        "kind": "customData"
+      },
+      "spikyLUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "void",
+        "type": "float",
+        "kind": "customData"
+      },
+      "adhesionLUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "void",
+        "type": "float",
+        "kind": "customData"
+      },
+      "volumeLUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "SI::volume",
+        "type": "float",
+        "kind": "customData"
+      },
+      "spline2LUT": {
+        "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
+        "unit": "SI::m_5",
+        "type": "float",
+        "kind": "customData"
+      },
+      "splineGradientLUT": {
         "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
         "unit": "SI::derived_unit<SI::recip<SI::m>>",
         "type": "float",
         "kind": "customData"
       },
-      "xbarLUT": {
+      "spikyGradientLUT": {
         "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
-        "unit": "SI::derived_unit<SI::recip_2<SI::m>>",
+        "unit": "SI::derived_unit<SI::recip<SI::m>>",
         "type": "float",
         "kind": "customData"
       },
-      "ctrLUT": {
+      "cohesionLUT": {
         "description": "Look-Up-Table to handle simulation boundaries more efficiently.",
-        "unit": "none",
-        "type": "int32_t",
+        "unit": "void",
+        "type": "float",
         "kind": "customData"
       },
       "boundaryPlanes": {
@@ -57,38 +125,144 @@
         "type": "float4",
         "kind": "customData"
       },
+      "boundaryPlaneVelocity": {
+        "description": "Contains boundary planes of the simulation as implicit plane equations entry = (n.x,n.y,n.z,d).",
+        "unit": "SI::velocity",
+        "type": "float4",
+        "kind": "customData"
+      },
       "volumeBoundaryVolumes": {
         "description": "Contains references to boundary volumes created from vdb volumes for more complex boundary objects than planes.",
         "type": "cudaTextureObject_t",
         "unit": "none",
-        "kind": "customData"
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())"
       },
       "volumeBoundaryDimensions": {
         "description": "Contains the dimension in voxels for each boundary volume.",
         "type": "int4",
         "unit": "none",
-        "kind": "customData"
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())"
       },
       "volumeBoundaryMin": {
         "description": "Low part of the AABB of every boundary volume.",
         "type": "float4",
         "unit": "SI::m",
-        "kind": "customData"
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())"
       },
       "volumeBoundaryMax": {
         "description": "High part of the AABB of every boundary volume.",
         "type": "float4",
         "unit": "SI::m",
-        "kind": "customData"
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())"
+      },
+      "volumeBoundaryDensity": {
+        "description": "TODO",
+        "unit": "SI::density",
+        "type": "float",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())"
+      },
+      "volumeBoundaryVolume": {
+        "description": "TODO",
+        "unit": "SI::volume",
+        "type": "float",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())"
+      },
+      "volumeBoundaryVelocity": {
+        "description": "TODO",
+        "type": "float4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "SI::velocity"
+      },
+      "volumeBoundaryAngularVelocity": {
+        "description": "TODO",
+        "type": "float4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "SI::Hz"
+      },
+      "volumeBoundaryKind": {
+        "description": "TODO",
+        "type": "int32_t",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "none"
+      },
+      "volumeBoundaryPosition": {
+        "description": "TODO",
+        "type": "float4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "SI::m"
+      },
+      "volumeBoundaryQuaternion": {
+        "description": "TODO",
+        "type": "float4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "none"
+      },
+      "volumeBoundaryTransformMatrix": {
+        "description": "TODO",
+        "type": "Matrix4x4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "none"
+      },
+      "volumeBoundaryTransformMatrixInverse": {
+        "description": "TODO",
+        "type": "Matrix4x4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "none"
+      },
+      "volumeBoundaryInertiaMatrix": {
+        "description": "TODO",
+        "type": "Matrix4x4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "none"
+      },
+      "volumeBoundaryInertiaMatrixInverse": {
+        "description": "TODO",
+        "type": "Matrix4x4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "none"
+      },
+      "volumeBoundaryAcceleration": {
+        "description": "TODO",
+        "type": "float4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "SI::acceleration"
+      },
+      "volumeBoundaryAngularAcceleration": {
+        "description": "TODO",
+        "type": "float4",
+        "kind": "individualData",
+        "size": "math::max(1u,(uint32_t)get<parameters::boundaryVolumes>().size())",
+        "unit": "SI::s_2"
       }
-    }, 
+    },
     "surfaceArrays": {
       "decisionBuffer": {
         "description": "Used to indicate if a particle is at the surface or not and if the state of the particle has changed in the last surface distance iteration.",
         "unit": "none",
         "type": "float",
         "kind": "particleData",
-        "depends_any": [ { "surfaceDistance": true } ]
+        "depends_any": [
+          {
+            "modules::surfaceDistance": true,
+            "modules::surfaceDetection": true
+          }
+        ]
       },
       "surface_idxBuffer": {
         "description": "Used for compaction of indices.",
@@ -96,14 +270,24 @@
         "type": "int32_t",
         "kind": "particleData",
         "swap": true,
-        "depends_any": [ { "surfaceDistance": true } ]
+        "depends_any": [
+          {
+            "modules::surfaceDistance": true,
+            "modules::surfaceDetection": true
+          }
+        ]
       },
       "markerBuffer": {
         "description": "Similar to decisionBuffer, these two values are used in an A->B, B->A fashion.",
         "unit": "none",
         "type": "float",
         "kind": "particleData",
-        "depends_any": [ { "surfaceDistance": true } ]
+        "depends_any": [
+          {
+            "modules::surfaceDistance": true,
+            "modules::surfaceDetection": true
+          }
+        ]
       },
       "distanceBuffer": {
         "description": "Contains the signed distance of a particle to the closest fluid surface (distances are negative as fluid particles are inside the fluid volume).",
@@ -113,14 +297,24 @@
         "size": 1,
         "swap": true,
         "resort": true,
-        "depends_any": [ { "surfaceDistance": true } ]
+        "depends_any": [
+          {
+            "modules::surfaceDistance": true,
+            "modules::surfaceDetection": true
+          }
+        ]
       },
       "changeBuffer": {
         "description": "Used to count particles that have changed in the last iteration.",
         "unit": "none",
         "type": "float",
         "kind": "particleData",
-        "depends_any": [ { "surfaceDistance": true } ]
+        "depends_any": [
+          {
+            "modules::surfaceDistance": true,
+            "modules::surfaceDetection": true
+          }
+        ]
       }
     }
   },
@@ -133,7 +327,7 @@
         "default": false
       }
     },
-    "simulation_settings":{
+    "simulation_settings": {
       "boundaryDampening": {
         "identifier": "boundaryDampening",
         "name": "Dampening applied to particles upon impact of the boundary, currently effectively forced to 1.",
@@ -146,6 +340,20 @@
           "min": "0.0f",
           "max": "1.0f",
           "step": "0.001f"
+        }
+      },
+      "LUTOffset": {
+        "identifier": "LUTOffset",
+        "name": "Path to an .obj file used to initialize the Simulation domain.",
+        "type": "float",
+        "unit": "none",
+        "default": "0.f",
+        "visible": true,
+        "const": false,
+        "range": {
+          "min": "-2.285391f",
+          "max": "2.285391f",
+          "step": "0.01f"
         }
       },
       "boundaryObject": {
@@ -172,12 +380,12 @@
     },
     "moving_plane": {
       "plane$": {
-        "identifier": "moving_planes",
+        "identifier": "movingPlanes",
         "name": "Complex parameter that describes a moving boundary Wall.",
         "default": "",
-        "type": "std::vector<moving_plane>",
+        "type": "std::vector<movingPlane>",
         "complex_type": {
-          "name": "moving_plane",
+          "name": "movingPlane",
           "description": {
             "pos": {
               "identifier": "plane_position",
@@ -194,7 +402,7 @@
               "type": "float3",
               "default": "{0.f,0.f,0.f}"
             },
-            "dur": {
+            "dur": {   
               "identifier": "duration",
               "type": "float",
               "default": "-1.f"
@@ -221,22 +429,57 @@
     "boundary_volumes": {
       "volumeBoundaryCounter": {
         "identifier": "volumeBoundaryCounter",
-        "name": "Represents the number of valid boundary volumes.",
+        "description": "Represents the number of valid boundary volumes.",
         "type": "int32_t",
         "unit": "none",
         "default": "0"
       },
-  
+
       "volume$": {
-        "identifier": "boundary_volumes",
+        "identifier": "boundaryVolumes",
         "name": "Complex parameter that describes a volume that should be loaded from a file and used as a one way coupled boundary Object.",
         "default": "",
-        "type": "std::vector<boundary_volume>",
+        "type": "std::vector<boundaryVolume>",
         "complex_type": {
-          "name": "boundary_volume",
+          "name": "boundaryVolume",
           "description": {
             "file": {
               "identifier": "fileName",
+              "type": "std::string",
+              "default": ""
+            },
+            "density": {
+              "identifier": "density",
+              "type": "float",
+              "default": "998.0f"
+            },
+            "position": {
+              "identifier": "position",
+              "type": "float3",
+              "default": "{0.f,0.f,0.f}"
+            },
+            "velocity": {
+              "identifier": "velocity",
+              "type": "float3",
+              "default": "{0.f,0.f,0.f}"
+            },
+            "angularVelocity": {
+              "identifier": "angularVelocity",
+              "type": "float4",
+              "default": "{CUDART_PI_F * 0.5f,0.f,0.f,0.f}"
+            },
+            "angle": {
+              "identifier": "angle",
+              "type": "float3",
+              "default": "{0.f,0.f,0.f}"
+            },
+            "kind": {
+              "identifier": "kind",
+              "type": "int32_t",
+              "default": "0"
+            },
+            "animationPath": {
+              "identifier": "animationPath",
               "type": "std::string",
               "default": ""
             }

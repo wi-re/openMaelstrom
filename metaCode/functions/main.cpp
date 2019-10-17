@@ -65,7 +65,7 @@ struct transformation{
 	}
 
 };
-#if defined(_MSC_VER) && !defined(__clang__)
+#if defined(_MSC_VER) && !defined(__CLANG__)
 #define template_flag
 #else
 #define template_flag template
@@ -109,7 +109,7 @@ auto resolveIncludes(boost::property_tree::ptree &pt) {
 }
 
 
-int main(int, char** argv) {
+int main(int, char** argv) try {
 	std::cout << "Running function meta-code generation" << std::endl;
 	fs::path input(R"()");
 	fs::path output(R"()");
@@ -161,7 +161,7 @@ namespace SPH{
 		//std::cout << parent->node->first << " -> " << node.first << " : " << node.second.template get<std::string>("description") << std::endl;
 
 		auto description = node.second.template_flag get("description", std::string("no description"));
-		auto name = node.second.template_flag get<std::string>("name");
+		auto name = node.second.template get<std::string>("name");
 		auto units = node.second.template_flag get("units", false);
 
 		std::stringstream usings;
@@ -174,8 +174,15 @@ namespace SPH{
 			auto swaps = node.second.template_flag get_child_optional(prefix);
 			if (swaps) for (auto swap : swaps.get()) {
 				std::string fn_name = swap.second.data();
+				std::string copy = boost::replace_all_copy(fn_name, "::", "_");
+				std::vector<std::string> splitVec;
+				boost::split(splitVec, fn_name, boost::is_any_of("::"), boost::token_compress_on);
+				for(int32_t i = 1; i < splitVec.size(); ++i)
+					splitVec[i][0] = ::toupper(splitVec[i][0]);
+	
+				copy = boost::join(splitVec, "");
 				sstream << R"(
-			)" << arr_t << R"()" << (units ? "_u" : "") << R"(<arrays::)" << fn_name << "> " << fn_name << ";";
+			)" << arr_t << R"()" << (units ? "_u" : "") << R"(<arrays::)" << fn_name << "> " << copy << ";";
 				tuple_elems.push_back("arrays::" + fn_name);
 			}
 			if (swaps) {
@@ -243,8 +250,8 @@ namespace SPH{
 		text_fn.push_back([&](auto text) {return arr_fn(text, "output","write_array"); });
 		text_fn.push_back([&](auto text) {return arr_fn(text, "temporary","write_array"); });
 		text_fn.push_back([&](auto text) {
-			auto resort = node.second.template_flag get_optional<bool>("resort");
-			auto inlet = node.second.template_flag get_optional<bool>("inlet");
+			auto resort = node.second.template get_optional<bool>("resort");
+			auto inlet = node.second.template get_optional<bool>("inlet");
 
 			std::stringstream sstream;
 			if (resort && resort.get())
@@ -265,7 +272,7 @@ namespace SPH{
 			std::vector<std::string> tuple_arrays;
 
 			std::vector<std::string> cell_params = { "num_ptcls", "timestep", "radius", "rest_density","max_numptcls" };
-			std::vector<std::string> cell_arrays = {  };
+			std::vector<std::string> cell_arrays = {  "debugArray"};
 
 			auto cell_info = node.second.template_flag get("basic_info", true);
 			if (cell_info) {
@@ -278,12 +285,12 @@ namespace SPH{
 				}
 				sstream << std::endl;
 
-			//	for (auto param : cell_arrays) {
-			//		sstream << R"(
-			//)" << "const_array" << R"()" << (units ? "_u" : "") << R"(<arrays::)" << param << "> " << param << ";";
-			//		tuple_arrays.push_back("arrays::" + param);
-			//	}
-			//	sstream << std::endl;
+				for (auto param : cell_arrays) {
+					sstream << R"(
+			)" << "write_array" << R"()" << (units ? "_u" : "") << R"(<arrays::)" << param << "> " << param << ";";
+					tuple_arrays.push_back("arrays::" + param);
+				}
+				sstream << std::endl;
 
 				if (cell_info) {
 					usings << R"(
@@ -311,7 +318,7 @@ namespace SPH{
 			std::vector<std::string> tuple_arrays;
 
 			std::vector<std::string> cell_params = { "grid_size", "min_domain", "max_domain", "cell_size", "hash_entries", "min_coord","mlm_schemes" };
-			std::vector<std::string> cell_arrays = { "cellBegin", "cellEnd", "cellSpan", "hashMap", "MLMResolution"  };
+			std::vector<std::string> cell_arrays = { "cellBegin", "cellEnd", "cellSpan", "hashMap", "compactHashMap", "compactCellSpan", "MLMResolution"  };
 
 			auto cell_info = node.second.template_flag get("cell_info", false);
 			if (cell_info) {
@@ -363,8 +370,8 @@ namespace SPH{
 			std::vector<std::string> tuple_params;
 			std::vector<std::string> tuple_arrays;
 
-			std::vector<std::string> cell_params = { "boundaryCounter", "ptcl_spacing", "radius", "boundaryLUTSize"};
-			std::vector<std::string> cell_arrays = { "boundaryPlanes", "xbarLUT", "ctrLUT", "boundaryLUT", "boundaryPressureLUT" };
+			std::vector<std::string> cell_params = { "boundaryCounter", "ptcl_spacing", "radius", "boundaryLUTSize", "LUTOffset"};
+			std::vector<std::string> cell_arrays = { "boundaryPlanes", "boundaryPlaneVelocity","offsetLUT", "splineLUT", "spline2LUT", "splineGradientLUT", "spikyLUT", "spikyGradientLUT","cohesionLUT", "volumeLUT", "adhesionLUT" };
 
 			auto cell_info = node.second.template_flag get("virtual_info", false);
 			if (cell_info) {
@@ -416,7 +423,9 @@ namespace SPH{
 			std::vector<std::string> tuple_arrays;
 
 			std::vector<std::string> cell_params = { "volumeBoundaryCounter" };
-			std::vector<std::string> cell_arrays = { "volumeBoundaryVolumes", "volumeBoundaryDimensions", "volumeBoundaryMin", "volumeBoundaryMax" };
+			std::vector<std::string> cell_arrays = { "volumeBoundaryVolumes", "volumeBoundaryDimensions", "volumeBoundaryMin", "volumeBoundaryMax",
+			"volumeBoundaryDensity","volumeBoundaryVolume","volumeBoundaryVelocity","volumeBoundaryAngularVelocity","volumeBoundaryPosition","volumeBoundaryQuaternion",
+			"volumeBoundaryTransformMatrix", "volumeBoundaryTransformMatrixInverse","volumeBoundaryKind","volumeBoundaryInertiaMatrix","volumeBoundaryInertiaMatrixInverse" };
 
 			auto cell_info = node.second.template_flag get("boundaryInfo", false);
 			if (cell_info) {
@@ -467,7 +476,7 @@ namespace SPH{
 			std::vector<std::string> tuple_arrays;
 
 			std::vector<std::string> cell_params = {  };
-			std::vector<std::string> cell_arrays = { "neighborList", "neighborListLength","spanNeighborList", "compactCellScale", "compactCellList" };
+			std::vector<std::string> cell_arrays = { "neighborList", "neighborListLength","spanNeighborList", "compactCellScale", "compactCellList", "neighborMask" };
 
 			auto cell_info = node.second.template_flag get("neighbor_info", false);
 			if (cell_info) {
@@ -521,8 +530,9 @@ namespace SPH{
 				std::string fn_name = swap.second.data();
 				if (text.find(fn_name + '>') != std::string::npos)
 					continue;
+				std::string copy = boost::replace_all_copy(fn_name, "::", "_");
 				sstream << R"(
-			)" << prefix << R"()" << (units ? "_u" : "") << R"(<parameters::)" << fn_name << "> " << fn_name << ";";
+			)" << prefix << R"()" << (units ? "_u" : "") << R"(<parameters::)" << fn_name << "> " << copy << ";";
 				tuple_elems.push_back("parameters::" + fn_name);
 			}
 			if (swaps) {
@@ -540,21 +550,21 @@ namespace SPH{
 			sstream << "\n";
 			return std::regex_replace(text, std::regex(std::string(R"(\$)" + prefix)), swaps ? sstream.str() : std::string("")); });
 
-		text_fn.push_back([&](auto text) {return std::regex_replace(text, std::regex(R"(\$name)"), node.second.template_flag get<std::string>("name")); });
+		text_fn.push_back([&](auto text) {return std::regex_replace(text, std::regex(R"(\$name)"), node.second.template get<std::string>("name")); });
 		text_fn.push_back([&](auto text) {return std::regex_replace(text, std::regex(R"(\$using)"), usings.str()); }); 
 		text_fn.push_back([&](auto text) {return std::regex_replace(text, std::regex(R"(\$description)"), node.second.template_flag get("description",std::string("No Description"))); });
 
 		for (auto f : text_fn)
 			function_str = f(function_str);
 
-		fs::path folder = output_folder / "SPH" /  node.second.template_flag get<std::string>("folder");
+		fs::path folder = output_folder / "SPH" /  node.second.template get<std::string>("folder");
 		fs::create_directories(folder);
 		folder /= node.first;
 
 		fs::path header = folder.replace_extension(".cuh");
 		fs::path source = folder.replace_extension(".cu");
 		std::stringstream header_str;
-		header_str << R"(#include <SPH/)" << node.second.template_flag get<std::string>("folder") << "/" << node.first << R"(.cuh>)";
+		header_str << R"(#include <SPH/)" << node.second.template get<std::string>("folder") << "/" << node.first << R"(.cuh>)";
 
 
 		headers.push_back(header_str.str());
@@ -603,4 +613,8 @@ void SPH::)" << name << "::" << fn_name << R"((Memory mem){})";
 		header_out << header << std::endl;
 	}
 	header_out.close();
+}
+catch (std::exception e) {
+	std::cerr << "Caught exception: " << e.what() << std::endl;
+	throw;
 }

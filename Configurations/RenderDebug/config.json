@@ -1,0 +1,178 @@
+{
+  "modules": {
+    "alembic": false,
+    "pressure": "DFSPH",
+    "surfaceDistance": false,
+    "volumeBoundary": true,
+    "movingBoundaries": true,
+    "adaptive": false,
+    "viscosity": false,
+    "gl_record": false,
+    "rayTracing": true,
+    "surfaceDetection": true,
+    "error_checking": true,
+    "drag": "Gissler17",
+    "vorticity": "Bender17",
+    "resorting": "compactMLM",
+    "tension": "Akinci",
+    "support": "constrained",
+    "hash_width": "64bit",
+    "neighborhood": "constrained",
+    "anisotropicSurface": true,
+    "launch_cfg": "device",
+    "density": "standard"
+  },
+  "surfaceDistance": {
+    "distanceFieldDistances": "5.0 5.0 5.0",
+    "level_limit": "-15.f"
+  },
+  "adaptive": {
+    "resolution": 128,
+    "distance": "1.0 1.0 2.0",
+    "delay": 1.5,
+    "blendsteps": 15,
+    "limit": -15.0,
+    "useVolume": 1
+  },
+  "alembics": {
+    "fps": 24
+  },
+  "color_map": {
+    "auto": 1,
+    "buffer": "velocity",
+    "min": 0,
+    "max": 30,
+    "map": "viridis",
+    "map_flipped": 0,
+    "mapping_mode": "linear"
+  },
+  "inlet_volumess": {
+    "volume1": {
+      "file": "Volumes/FluidS.vdb",
+      "dur": 900,
+      "delay": 0.0,
+      "vel": "0 0 -20 0"
+    }
+  },
+  "particle_volumes": {
+    "volume1": {
+      "file": "Volumes/FluidSheet.vdb",
+      "concentration": 0.0,
+      "timeToEmit": 0.0,
+      "kind": "vdb"
+    }
+  },
+  "particleSetss": {
+    "set1": "particles.set"
+  },
+  "boundary_volumess": {
+    "volume1": {
+      "file": "Volumes/BunnyCorn.vdb"
+    }
+  },
+  "particle_settings": {
+    "viscosity": 10.0,
+    "boundaryViscosity": 0.05,
+    "tension_akinci": 0.15,
+    "rigidAdhesion_akinci": 0.0,
+    "boundaryAdhesion_akinci": 0.0,
+    "tension": 0.1,
+    "gravity": 9.81,
+    "radius": 0.5,
+    "density": 998,
+    "air_velocity": "0 0 0"
+  },
+  "iisph_settings": {
+    "eta": 0.01
+  },
+  "dfsph_settings": {
+    "densityEta": 0.0001,
+    "divergenceEta": 0.001
+  },
+  "rtxScene": {
+    "boxs2": {
+      "maxPosition": "FLT_MAX FLT_MAX -1",
+      "minPosition": "-FLT_MAX -FLT_MAX -4",
+      "emission": "0 0 0",
+      "color": "0.2 0.2 0.2",
+      "material": 0
+    },
+    "box1": {
+      "maxPosition": "256 256 256",
+      "minPosition": "-256 -FLT_MAX -256",
+      "emission": "0.8 0.8 0.8",
+      "color": "1 1 1",
+      "material": 0
+    },
+    "sphere1": {
+      "position": "0 0 -1060",
+      "radius": "10000",
+      "emission": "0.55 0.55 0.55",
+      "color": "0.075 0.075 0.075",
+      "material": 0
+    },
+    "spheres2": {
+      "position": "0 0 50",
+      "radius": "25",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 4
+    }
+  },
+  "render_settings": {
+    "vrtxWmin": 0.586,
+    "vrtxR": 0.207,
+    "anisotropicKs": 1.0,
+    "anisotropicKr": 6.000000,
+    "anisotropicKn": 0.238806,
+    "anisotropicLambda": 0.980198,
+    "anisotropicNepsilon": "40",
+    "apertureRadius": "0.15f",
+    "vrtxFluidBias": "0.f",
+    "focalDistance": "125.f",
+    "vrtxRenderFluid": "1",
+    "vrtxRenderSurface": "1",
+    "vrtxNeighborLimit": 0,
+    "vrtxRenderNormals": "0",
+    "vrtxRenderBVH": "1",
+    "vrtxRenderMode": "0",
+    "vrtxDisplayStats": "1",
+    "vrtxMaterialg": "4",
+    "vrtxBouncesg": "10",
+    "vrtxMaterial": "4",
+    "vrtxBounces": "10",
+    "vrtxDebeerScale": "0.056",
+
+    "vrtxBVHMaterial": "1",
+    "vrtxFluidColor": "1.0 1.0 1.0",
+    "vrtxFluidColor2": "0.572 0.724 1",
+    "vrtxFluidColor3": "0.05098 0.23137 0.494177",
+    "vrtxIOR": "1.3f",
+    "internalLimit": 40.0,
+    "camera_position": "43.3055 -0.0194474 75.0405", 
+    "camera_angle": "180 0 -90", 
+
+    "camera_positions": "42.2844 95.2644 36.2681",
+    "camera_angles": "142.5 0 -126",
+
+
+
+    "camera_fps": 60,
+    "resolution": "1920 1080",
+    "gl_file": "adapt_break2.mp4"
+  },
+  "simulation_settings": {
+    "densitySteps": 5,
+    "boundaryObject": "Objects/domain.obj",
+    "domainWall": "xyz-",
+    "domainWalls": "x+-y+-z-",
+    "numptcls": 209000,
+    "auto_boundary": "true",
+    "boundaryDampening": 0.999,
+    "timestep_min": 0.0005,
+    "timestep_max": 0.01,
+    "neighborlimit": 125,
+    "LUTOffset": -0.0,
+    "external_force": "0 0 0 0"
+  }
+}

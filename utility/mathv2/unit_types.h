@@ -5,7 +5,9 @@
 #include <utility/mathv2/tools.h>
 #include <utility/mathv2/vector_types.h>
 #include <utility/mathv2/get.h>
-
+#ifndef WIN32
+#include <limits>
+#endif
 template <typename T, uint32_t dim> struct vec_ty;
 template <> struct vec_ty<float, 0> { using type = float; };
 template <> struct vec_ty<float, 2> { using type = float2; };

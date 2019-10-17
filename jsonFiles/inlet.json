@@ -7,8 +7,10 @@
       "cell_info": true,
       "units": true,
       "inlet": true,
+      "boundaryInfo": true,
+      "virtual_info": true,
       "functions": [ "init", "emit" ],
-      "depends_any": [ { "volumeInlets": true } ],
+      "depends_any": [ { "modules::volumeInlets": true } ],
       "parameters": [ "omega", "overhead_size", "target_neighbors", "support_leeway", "error_factor", "resort_algorithm", "ptcl_spacing" ],
       "output": [ "position", "velocity", "lifetime", "volume" ]
     },
@@ -20,7 +22,7 @@
       "boundaryInfo": true,
       "virtual_info": true,
       "functions": [ "cleanup_particles" ],
-      "depends_any": [ { "particleCleanUp": true } ],
+      "input": [ "volume" ],
       "output": [ "position"]
     },
     "volumeOutlets": {
@@ -30,7 +32,7 @@
       "units": false,
       "cell_info": false,
       "neighbor_info": false,
-      "depends_any": [ { "volumeOutlets": true } ],
+      "depends_any": [ { "modules::volumeOutlets": true } ],
       "functions": [ "init", "remove" ],
       "parameters": [ "volumeOutletCounter" ],
       "input": [ "volume", "volumeOutletVolumes", "volumeOutletDimensions", "volumeOutletMin", "volumeOutletMax", "volumeOutletRate" ],
@@ -89,9 +91,9 @@
       }
     }
   },
-  "uniforms":{
-    "modules":{
-      "particleCleanUp": { 
+  "uniforms": {
+    "modules": {
+      "particleCleanUp": {
         "identifier": "particleCleanUp",
         "name": "Used to enable/disable correct error checking after each kernel call which introduces some overhead.",
         "type": "bool",
@@ -110,14 +112,14 @@
         "default": false
       }
     },
-    "particle_volumes": { 
+    "particle_volumes": {
       "volume$": {
-        "identifier": "particle_volumes",
+        "identifier": "particleVolumes",
         "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles once.",
         "default": "",
-        "type": "std::vector<particle_volume>",
+        "type": "std::vector<particleVolume>",
         "complex_type": {
-          "name": "particle_volume",
+          "name": "particleVolume",
           "description": {
             "file": {
               "identifier": "fileName",
@@ -143,14 +145,87 @@
         }
       }
     },
-    "inlet_volumes": {
+    "rigid_volumes": {
+      "gamma": {
+        "identifier": "gamma",
+        "type": "float",
+        "default": "0.7f",
+        "const": false,
+        "range": {
+          "min": "0.000f",
+          "max": "5.f",
+          "step": "0.02f"
+        }
+      },
+      "beta": {
+        "identifier": "beta",
+        "type": "float",
+        "default": "0.1f",
+        "const": false,
+        "range": {
+          "min": "0.000f",
+          "max": "5.f",
+          "step": "0.02f"
+        }
+      },
       "volume$": {
-        "identifier": "inlet_volumes",
+        "identifier": "rigidVolumes",
+        "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as rigid particles once.",
+        "default": "",
+        "type": "std::vector<rigidVolume>",
+        "complex_type": {
+          "name": "rigidVolume",
+          "description": {
+            "file": {
+              "identifier": "fileName",
+              "type": "std::string",
+              "default": ""
+            },
+            "kind": {
+              "identifier": "kind",
+              "type": "std::string",
+              "default": ""
+            },
+            "density": {
+              "identifier": "density",
+              "type": "float",
+              "default": "1.f"
+            },
+            "shift": {
+              "identifier": "shift",
+              "type": "float3",
+              "default": "{0.f,0.f,0.f}"
+            },
+            "concentration": {
+              "identifier": "concentration",
+              "type": "float",
+              "default": "0.f"
+            },
+            "timeToEmit": {
+              "identifier": "timeToEmit",
+              "type": "float",
+              "default": "0.f"
+            }
+          }
+        }
+      }
+    },
+    "particleSets": {
+      "set$": {
+        "identifier": "particleSets",
         "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles continuously.",
         "default": "",
-        "type": "std::vector<inlet_volume>",
+        "type": "std::vector<std::string>"
+      }
+    },
+    "inlet_volumes": {
+      "volume$": {
+        "identifier": "inletVolumes",
+        "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles continuously.",
+        "default": "",
+        "type": "std::vector<inletVolume>",
         "complex_type": {
-          "name": "inlet_volume",
+          "name": "inletVolume",
           "description": {
             "file": {
               "identifier": "fileName",
@@ -202,12 +277,12 @@
         "default": "-1.f"
       },
       "volume$": {
-        "identifier": "outlet_volumes",
+        "identifier": "outletVolumes",
         "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles continuously.",
         "default": "",
-        "type": "std::vector<outlet_volume>",
+        "type": "std::vector<outletVolume>",
         "complex_type": {
-          "name": "outlet_volume",
+          "name": "outletVolume",
           "description": {
             "file": {
               "identifier": "fileName",

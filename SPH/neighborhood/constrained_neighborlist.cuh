@@ -13,6 +13,8 @@ namespace SPH{
 			parameter_u<parameters::rest_density> rest_density;
 			parameter_u<parameters::max_numptcls> max_numptcls;
 
+			write_array_u<arrays::debugArray> debugArray;
+
 			// parameters
 			parameter_u<parameters::omega> omega;
 			parameter_u<parameters::overhead_size> overhead_size;
@@ -54,6 +56,8 @@ namespace SPH{
 			const_array_u<arrays::cellEnd> cellEnd;
 			const_array_u<arrays::cellSpan> cellSpan;
 			const_array_u<arrays::hashMap> hashMap;
+			const_array_u<arrays::compactHashMap> compactHashMap;
+			const_array_u<arrays::compactCellSpan> compactCellSpan;
 			const_array_u<arrays::MLMResolution> MLMResolution;
 
 			// neighborhood resources (mapped as read only)
@@ -66,7 +70,7 @@ namespace SPH{
 			using temporary_arrays = std::tuple<arrays::closestNeighbor, arrays::supportEstimate, arrays::support, arrays::supportMarker, arrays::supportMarkerCompacted, arrays::neighborListSwap, arrays::neighborOverhead, arrays::neighborOverheadCount>;
 			using basic_info_params = std::tuple<parameters::num_ptcls, parameters::timestep, parameters::radius, parameters::rest_density, parameters::max_numptcls>;
 			using cell_info_params = std::tuple<parameters::grid_size, parameters::min_domain, parameters::max_domain, parameters::cell_size, parameters::hash_entries, parameters::min_coord, parameters::mlm_schemes>;
-			using cell_info_arrays = std::tuple<arrays::cellBegin, arrays::cellEnd, arrays::cellSpan, arrays::hashMap, arrays::MLMResolution>;
+			using cell_info_arrays = std::tuple<arrays::cellBegin, arrays::cellEnd, arrays::cellSpan, arrays::hashMap, arrays::compactHashMap, arrays::compactCellSpan, arrays::MLMResolution>;
 			using virtual_info_params = std::tuple<>;
 			using virtual_info_arrays = std::tuple<>;
 			using boundaryInfo_params = std::tuple<>;
@@ -80,7 +84,7 @@ constexpr static const bool inlet = false;
 		//valid checking function
 		inline bool valid(Memory){
 			bool condition = false;
-			condition = condition || get<parameters::neighborhood>() == "constrained";
+			condition = condition || get<parameters::modules::neighborhood>() == "constrained";
 			return condition;
 		}
 		

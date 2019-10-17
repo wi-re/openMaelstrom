@@ -10,6 +10,101 @@ Camera &Camera::instance() {
   return cam;
 }
 
+void Camera::maximizeCoverage()
+{
+	auto to_vec3 = [](auto v) { return QVector3D(v.x, v.y, v.z); };
+	float3 minAABB = get<parameters::min_coord>() + 3.f * get<parameters::cell_size>() - get<parameters::radius>();
+	float3 maxAABB = get<parameters::max_coord>() - 3.f * get<parameters::cell_size>() + get<parameters::radius>();
+	float3 center = minAABB + (maxAABB - minAABB) * 0.5f;
+
+	auto xv = [&](auto x, auto y, auto z, auto view) {
+		QVector4D xp{ x, y, z, 1.f };
+		auto vp = view * xp;
+		auto pp = matrices.perspective * vp;
+		pp /= pp.w();
+		auto pred =
+			((pp.x() <= 1.f) && (pp.x() >= -1.f)) &&
+			((pp.y() <= 1.f) && (pp.y() >= -1.f)) &&
+			((pp.z() <= 1.f) && (pp.z() >= 0.f));
+		return std::make_tuple(xp, pp, pred);
+	};
+
+	//QVector3D position = position;
+	QVector3D fwd = forward;
+
+	float pitch = rotation.x() * M_PI / 180.f;
+	float yaw = rotation.z() * M_PI / 180.f;
+	float tilt = rotation.z() * M_PI / 180.f;
+	float xDirection = sin(yaw) * cos(pitch);
+	float zDirection = sin(pitch);
+	float yDirection = cos(yaw) * cos(pitch);
+
+	float3 directionToCamera = float3{ xDirection, yDirection, zDirection };
+	float3 viewDirection = directionToCamera * (-1.0f);
+	auto v = to_vec3(viewDirection);
+
+	float3 centerPosition{ position.x(), position.y(), position.z() };
+	float3 eyePosition = centerPosition;
+	auto p = to_vec3(eyePosition);
+
+	auto vert = QVector3D::crossProduct(p, v);
+	auto u = to_vec3(float3{ 0, 0, 1 });
+	if (fabsf(QVector3D::dotProduct(u, v)) > 0.99995f)
+		u = to_vec3(float3{ 0, 1,0 });
+	auto forward = v;
+	forward.normalize();
+	auto up = u;
+	up.normalize();
+	auto strafe = QVector3D::crossProduct(forward, up);
+	strafe.normalize();
+	p = to_vec3(center);
+	bool condition = false;
+	auto predicateOf = [&](auto p) {
+		auto viewMatrix = QMatrix4x4();
+		viewMatrix.lookAt(p, p + v, u);
+
+		auto[x_000, v_000, b_000] = xv(minAABB.x, minAABB.y, minAABB.z, viewMatrix);
+		auto[x_001, v_001, b_001] = xv(minAABB.x, minAABB.y, maxAABB.z, viewMatrix);
+		auto[x_010, v_010, b_010] = xv(minAABB.x, maxAABB.y, minAABB.z, viewMatrix);
+		auto[x_011, v_011, b_011] = xv(minAABB.x, maxAABB.y, maxAABB.z, viewMatrix);
+
+		auto[x_100, v_100, b_100] = xv(maxAABB.x, minAABB.y, minAABB.z, viewMatrix);
+		auto[x_101, v_101, b_101] = xv(maxAABB.x, minAABB.y, maxAABB.z, viewMatrix);
+		auto[x_110, v_110, b_110] = xv(maxAABB.x, maxAABB.y, minAABB.z, viewMatrix);
+		auto[x_111, v_111, b_111] = xv(maxAABB.x, maxAABB.y, maxAABB.z, viewMatrix);
+
+		condition = b_000 && b_001 && b_010 && b_011 && b_100 && b_101 && b_110 && b_111;
+		return condition;
+	};
+	auto updatePositionBackward = [&](auto p, auto stepFactor) {
+		int32_t counter = 0;
+		do {
+			p -= v * stepFactor;
+			condition = predicateOf(p);
+		} while (!condition && counter++ < 512);
+		return p;
+	};
+	auto updatePositionForward = [&](auto p, auto stepFactor) {
+		int32_t counter = 0;
+		do {
+			p += v * stepFactor;
+			condition = predicateOf(p);
+		} while (condition && counter++ < 512);
+		p -= v * stepFactor;
+		return p;
+	};
+	p = to_vec3(center);
+	//p = updatePositionBackward(p, 4.f);
+	//p = updatePositionForward(p, 2.f);
+	for (float f = 0.f; f <= 8.f; f += 1.f) {
+		p = updatePositionBackward(p, powf(2.f, -f * 2.f));
+		p = updatePositionForward(p, powf(2.f, -(f * 2.f + 1.f)));
+	}
+	position = p;
+	updateViewMatrix();
+	tracking = true;
+}
+
 std::pair<bool, DeviceCamera> Camera::prepareDeviceCamera() {
     // QVector3D forward(matrices.view(2, 0), matrices.view(2, 1), matrices.view(2, 2));
     // QVector3D strafe(matrices.view(0, 0), matrices.view(1, 0), matrices.view(2, 0));
@@ -17,7 +112,7 @@ std::pair<bool, DeviceCamera> Camera::prepareDeviceCamera() {
 
   DeviceCamera cam;
   float fovx = fov*1.f;
-  fovx = 96.f;
+  fovx = parameters::camera_fov{};
   float2 resolution{(float)width, (float)height};
 float2 fov2;
   fov2.x = fovx;
@@ -30,8 +125,17 @@ float2 fov2;
   cam.view = float3{forward.x(), forward.y(), forward.z()};
   cam.up = float3{up.x(), up.y(), up.z()};
   cam.fov = float2{fov2.x, fov2.y};
-  cam.apertureRadius = 0.04f;
-  cam.focalDistance = 75.f;
+  static float lastAperture = get<parameters::apertureRadius>();
+  static float lastFocalDistance = get<parameters::focalDistance>();
+  static float lastFocalLength = -1.f;
+  if (lastAperture != get<parameters::apertureRadius>() || lastFocalDistance != get<parameters::focalDistance>() || lastFocalLength != get < parameters::camera_fov>()) {
+	  dirty = true;
+	  lastFocalLength = get<parameters::camera_fov>();
+	  lastAperture = get<parameters::apertureRadius>();
+	  lastFocalDistance = get<parameters::focalDistance>();
+  }
+  cam.apertureRadius = get<parameters::apertureRadius>();
+  cam.focalDistance = get<parameters::focalDistance>();
 
   auto MVP = matrices.perspective * matrices.view;
 
@@ -69,7 +173,19 @@ void Camera::setKeyboardModifiers([[maybe_unused]] QInputEvent *event) {}
 void Camera::resizeEvent([[maybe_unused]] QResizeEvent *event) {}
 void Camera::keyPressEvent(QKeyEvent *event) {
   setKeyboardModifiers(event);
+  bool switchPosition = false;
+  static QVector3D angle{ 0, 0, 0 };
+  if (event->key() == Qt::Key_F1 || event->key() == Qt::Key_F2 || event->key() == Qt::Key_F3 ||
+	  event->key() == Qt::Key_F4 || event->key() == Qt::Key_F5 || event->key() == Qt::Key_F6) {
+	  switchPosition = true;
+  }
+  static bool f1 = false, f2 = false, f3 = false, f4 = false, f5 = false, f6 = false;
+
   switch (event->key()) {
+  case Qt::Key_Control:
+	  angle = QVector3D{ 0,0,0 };
+	  f1 = false; f2 = false; f3 = false; f4 = false; f5 = false; f6 = false;
+	  break;
   case Qt::Key_W:
     keys.up = true;
     break;
@@ -89,30 +205,115 @@ void Camera::keyPressEvent(QKeyEvent *event) {
     keys.q = true;
     break;
   case Qt::Key_F1:
-    setPosition(QVector3D{150, 0, 50});
-    setRotation(QVector3D{180, 0, -90});
+	  if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+		  setPosition(QVector3D{ 150, 0, 0 });
+		  setRotation(QVector3D{ 180, 0, -90 });
+	  }
+	  else f1 = true;
     break;
   case Qt::Key_F2:
-    setPosition(QVector3D{0, 150, 50});
-    setRotation(QVector3D{180, 0, -180});
+	  if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+		  setPosition(QVector3D{ 0, 150, 0 });
+		  setRotation(QVector3D{ 180, 0, -180 });
+	  }
+	  else f2 = true;
     break;
   case Qt::Key_F3:
-    setPosition(QVector3D{-150, 0, 50});
-    setRotation(QVector3D{180, 0, 90});
+	  if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+		  setPosition(QVector3D{ -150, 0, 0 });
+		  setRotation(QVector3D{ 180, 0, 90 });
+	  }
+	  else f3 = true;
     break;
   case Qt::Key_F4:
-    setPosition(QVector3D{0, -150, 50});
-    setRotation(QVector3D{180, 0, 0});
+	  if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+		  setPosition(QVector3D{ 0, -150, 0 });
+		  setRotation(QVector3D{ 180, 0, 0 });
+	  }
+	  else f4 = true;
     break;
   case Qt::Key_F5:
-    setPosition(QVector3D{0, 0, -150});
-    setRotation(QVector3D{-90, 0, 90});
-    break;
+	  if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+		  setPosition(QVector3D{ 0, 0, -150 });
+		  setRotation(QVector3D{ -90, 0, 0 });
+	  }
+	  else f5 = true;
+	break;
   case Qt::Key_F6:
-    setPosition(QVector3D{0, 0, 150});
-    setRotation(QVector3D{90, 0, 90});
+	  if (!QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+		  setPosition(QVector3D{ 0, 0, 150 });
+		  setRotation(QVector3D{ 90, 0, 0 });
+	  }
+	  else f6 = true;
     break;
   }
+  if (QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+	  // 1 key
+	  if (f1 && !f2 && !f3 && !f4 && !f5 && !f6)
+		  setRotation(QVector3D{ 180, 0, 270 });
+	  if (!f1 &&  f2 && !f3 && !f4 && !f5 && !f6)
+		  setRotation(QVector3D{ 180, 0, 180 });
+	  if (!f1 && !f2 &&  f3 && !f4 && !f5 && !f6)
+		  setRotation(QVector3D{ 180, 0, 90 });
+	  if (!f1 && !f2 && !f3 &&  f4 && !f5 && !f6)
+		  setRotation(QVector3D{ 180, 0, 0 });
+	  if (!f1 && !f2 && !f3 && !f4 &&  f5 && !f6)
+		  setRotation(QVector3D{ -90, 0, 0 });
+	  if (!f1 && !f2 && !f3 && !f4 && !f5 &&  f6)
+		  setRotation(QVector3D{ 90, 0, 0 });
+
+	  // 2 keys
+	  if ( f1 &&  f2 && !f3 && !f4 && !f5 && !f6)
+		  setRotation(QVector3D{ 180, 0, 215 });
+	  if (!f1 &&  f2 && f3 && !f4 && !f5 && !f6)
+		  setRotation(QVector3D{ 180, 0, 135 });
+	  if (!f1 && !f2 && f3 && f4 && !f5 && !f6)
+		  setRotation(QVector3D{ 180, 0, 45 });
+	  if ( f1 && !f2 && !f3 && f4 && !f5 && !f6)
+		  setRotation(QVector3D{ 180, 0, 315 });
+	  // up 2 key
+	  if (f1 && !f2 && !f3 && !f4 && f5 && !f6)
+		  setRotation(QVector3D{ 225, 0, 270 });
+	  if (!f1 &&  f2 && !f3 && !f4 && f5 && !f6)
+		  setRotation(QVector3D{ 225, 0, 180 });
+	  if (!f1 && !f2 &&  f3 && !f4 && f5 && !f6)
+		  setRotation(QVector3D{ 225, 0, 90 });
+	  if (!f1 && !f2 && !f3 &&  f4 && f5 && !f6)
+		  setRotation(QVector3D{ 225, 0, 0 });
+	  // down 2 key
+	  if (f1 && !f2 && !f3 && !f4 && !f5 && f6)
+		  setRotation(QVector3D{ 135, 0, -90 });
+	  if (!f1 &&  f2 && !f3 && !f4 && !f5 && f6)
+		  setRotation(QVector3D{ 135, 0, -180 });
+	  if (!f1 && !f2 &&  f3 && !f4 && !f5 && f6)
+		  setRotation(QVector3D{ 135, 0, 90 });
+	  if (!f1 && !f2 && !f3 &&  f4 && !f5 && f6)
+		  setRotation(QVector3D{ 135, 0, 0 });
+	  // 3 keys up
+	  if (f1 &&  f2 && !f3 && !f4 && f5 && !f6)
+		  setRotation(QVector3D{ 225, 0, 215 });
+	  if (!f1 &&  f2 && f3 && !f4 && f5 && !f6)
+		  setRotation(QVector3D{ 225, 0, 135 });
+	  if (!f1 && !f2 && f3 && f4 && f5 && !f6)
+		  setRotation(QVector3D{ 225, 0, 45 });
+	  if (f1 && !f2 && !f3 && f4 && f5 && !f6)
+		  setRotation(QVector3D{ 225, 0, 315 });
+	  // 3 keys up
+	  if (f1 &&  f2 && !f3 && !f4 && !f5 && f6)
+		  setRotation(QVector3D{ 135, 0, 215 });
+	  if (!f1 &&  f2 && f3 && !f4 && !f5 && f6)
+		  setRotation(QVector3D{ 135, 0, 135 });
+	  if (!f1 && !f2 && f3 && f4 && !f5 && f6)
+		  setRotation(QVector3D{ 135, 0, 45 });
+	  if (f1 && !f2 && !f3 && f4 && !f5 && f6)
+		  setRotation(QVector3D{ 135, 0, 315 });
+  }
+  if (switchPosition && !QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier) ||
+	  switchPosition && !QApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
+	  maximizeCoverage();
+  if (switchPosition && QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))
+	  tracking = false;
+
 }
 void Camera::keyReleaseEvent(QKeyEvent *event) {
   setKeyboardModifiers(event);
@@ -137,10 +338,16 @@ void Camera::keyReleaseEvent(QKeyEvent *event) {
     keys.q = false;
     break;
   case Qt::Key_L:
-    LOG_DEBUG << "        \"camera_position\": \"" << position.x() << " " << position.y() << " " << position.z()
-              << "\"," << std::endl;
-    LOG_DEBUG << "        \"camera_angle\": \"" << rotation.x() << " " << rotation.y() << " " << rotation.z() << "\","
-              << std::endl;
+		if (QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)){
+			get<parameters::camera_position>() = float3{ position.x(), position.y(), position.z() };
+			get<parameters::camera_angle>() = float3{ rotation.x(), rotation.y(), rotation.z() };
+		}
+		else {
+			LOG_DEBUG << "        \"camera_position\": \"" << position.x() << " " << position.y() << " " << position.z()
+				<< "\"," << std::endl;
+			LOG_DEBUG << "        \"camera_angle\": \"" << rotation.x() << " " << rotation.y() << " " << rotation.z() << "\","
+				<< std::endl;
+		}
     break;
   case Qt::Key_R: {
     auto p = get<parameters::camera_position>();
@@ -271,12 +478,13 @@ void Camera::updateViewMatrix() {
   auto to_vec3 = [](auto v) { return QVector3D(v.x, v.y, v.z); };
   auto p = to_vec3(eyePosition);
   auto v = to_vec3(viewDirection);
-  auto horz = QVector3D::crossProduct(v,QVector3D(0,0,1));
+
   auto vert = QVector3D::crossProduct(p, v);
   //auto u = vert;
   auto u = to_vec3(float3{0, 0, 1});
-  if((v + u).length() < 0.1)
-    u = to_vec3(float3{1,0,0});
+  if(fabsf(QVector3D::dotProduct(u,v)) > 0.99995f)
+    u = to_vec3(float3{0, 1,0});
+  //u = vert;
   forward = v;
   forward.normalize();
   up = u;
@@ -321,6 +529,7 @@ void Camera::updateViewMatrix() {
     program->release();
   }
   dirty = true;
+  tracking = false;
 }
 bool Camera::moving() { return keys.left || keys.right || keys.up || keys.down || keys.e || keys.q; }
 void Camera::setPerspective(float fov, float aspect, float znear, float zfar) {
@@ -366,6 +575,11 @@ void Camera::translate(QVector3D delta) {
   updateViewMatrix();
 }
 void Camera::update(float deltaTime) {
+	static int32_t f = -1;
+	if (tracking && f != get<parameters::frame>()) {
+		maximizeCoverage();
+		f = get<parameters::frame>();
+	}
   if (type == CameraType::firstperson) {
     if (moving()) {
       QVector3D camFront;

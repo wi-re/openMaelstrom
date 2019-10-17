@@ -9,12 +9,14 @@ in vec3 normAttr;
 
 uniform mat4 perspective_matrix;
 uniform mat4 view_matrix;
+uniform mat4 model_matrix;
 
 out vec4 eyeSpacePos;
 out vec3 normal;
 
 void main() {
-	eyeSpacePos = view_matrix * vec4(posAttr.xyz ,1.f);
+	vec4 pos = model_matrix * vec4(posAttr.xyz ,1.f);
+	eyeSpacePos = view_matrix * vec4(pos.xyz,1.f);
 	gl_Position = perspective_matrix * eyeSpacePos;
 	normal = normalize(normAttr);
 })";
@@ -22,6 +24,7 @@ void main() {
 static const char *fragmentShaderSource = R"(#version 450 
 in vec3 normal;
 in vec4 eyeSpacePos;
+out vec4 outColor;
 
 uniform mat4 perspective_matrix;
 
@@ -30,12 +33,20 @@ void main() {
 	vec3 color = vec3(1,1,1);
 	float diffuse = abs(max(0.f, dot(normal, lightDir)));
 
-	gl_FragColor = vec4(color * diffuse,1.f);
+	outColor = vec4(color * diffuse,1.f);
 })";
 
 bool volumeRender::valid() { return get<parameters::volumeBoundary>() == true; }
 
-void volumeRender::update() { colorMap::instance().update(); }
+void volumeRender::update() { 
+	colorMap::instance().update();
+	m_program->bind();
+	
+	QMatrix4x4 objMat(modelMat.data, 4,4);
+	objMat = objMat.transposed();
+	m_program->setUniformValue(modelUniform, objMat);
+	m_program->release();
+}
 #undef foreach
 #ifdef _WIN32
 #pragma warning(push, 0)
@@ -53,8 +64,11 @@ void volumeRender::update() { colorMap::instance().update(); }
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #else
-#include <boost/filesystem.hpp>
-namespace fs = boost::filesystem;
+// #include <boost/filesystem.hpp>
+// namespace fs = boost::filesystem;
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+
 #endif
 #include <fstream>
 #include <utility/include_all.h>
@@ -65,12 +79,41 @@ volumeRender::volumeRender(OGLWidget *parent, std::string vdbFileName) {
   initializeOpenGLFunctions();
   m_program = new QOpenGLShaderProgram(parent);
   m_program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
+  LOG_INFO << "Compiling vertex shader for " << "ParticleRenderer" << std::endl;
+  LOG_INFO << m_program->log().toStdString() << std::endl;
   m_program->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
+  LOG_INFO << "Compiling fragment shader for " << "ParticleRenderer" << std::endl;
+  LOG_INFO << m_program->log().toStdString() << std::endl;
   glGenVertexArrays(1, &vao);
   glBindVertexArray(vao);
 
-  auto path = resolveFile(vdbFileName, {get<parameters::config_folder>()});
-  auto [positions, normals, triangles, edges, min, max] = generation::ObjWithNormals(path);
+  glGenVertexArrays(1, &vao);
+  glBindVertexArray(vao);
+
+  //auto path = resolveFile(vdbFileName, {get<parameters::config_folder>()});
+  auto file = resolveFile(vdbFileName, { get<parameters::config_folder>() });
+  auto f_obj = file;
+  f_obj.replace_extension(".obj");
+  //std::cout << file.string() << std::endl;
+  //std::cout << f_obj.string() << std::endl;
+  if (fs::exists(f_obj)) {
+	  file = f_obj;
+  }
+
+  auto path = std::experimental::filesystem::exists(f_obj) ? f_obj : file;
+  auto[positions, normals, triangles, edges, min, max] = generation::ObjWithNormals(path);
+  auto[texture, minC, maxC, dimension, centerOfMass, inertia] = generation::cudaVolume(path.string());
+  //std::cout << centerOfMass << std::endl;
+  modelMat = Matrix4x4::fromTranspose(centerOfMass);
+  auto printMat = [](auto Q) {
+	  std::cout
+		  << Q.data[0] << " " << Q.data[1] << " " << Q.data[2] << " " << Q.data[3] << "\n"
+		  << Q.data[4] << " " << Q.data[5] << " " << Q.data[6] << " " << Q.data[7] << "\n"
+		  << Q.data[8] << " " << Q.data[9] << " " << Q.data[10] << " " << Q.data[11] << "\n"
+		  << Q.data[12] << " " << Q.data[13] << " " << Q.data[14] << " " << Q.data[15] << "\n";
+  };
+ 
+  //printMat(modelMat);
   
   std::vector<int32_t> indices;
   for(const auto& t : triangles){
@@ -78,8 +121,10 @@ volumeRender::volumeRender(OGLWidget *parent, std::string vdbFileName) {
     indices.push_back(t.i1);
     indices.push_back(t.i2);
   }
-  tris = indices.size();
+  tris = (int32_t) indices.size();
   m_program->link();
+  LOG_INFO << "Linking " << "VolumeRenderer" << std::endl;
+  LOG_INFO << m_program->log().toStdString() << std::endl;
   m_posAttr = m_program->attributeLocation("posAttr");
   m_colAttr = m_program->attributeLocation("normAttr");
 
@@ -114,11 +159,21 @@ volumeRender::volumeRender(OGLWidget *parent, std::string vdbFileName) {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 
   glBindVertexArray(0);
+  m_program->bind();
   colorMap::instance().bind(m_program, 0, "colorRamp");
+  modelUniform = m_program->uniformLocation("model_matrix");
+  std::cout << modelUniform << std::endl;
+  QMatrix4x4 objMat;
+  objMat.setToIdentity();
+  qInfo() << objMat << "\n";
+  m_program->setUniformValue(modelUniform, objMat);
+  m_program->release();
   update();
 }
 
-void volumeRender::render() {
+void volumeRender::render(bool pretty) {
+	if (get<parameters::vrtxRenderBVH>() == 0)
+		return;
   if(!active) return;
   glBindVertexArray(vao);
 

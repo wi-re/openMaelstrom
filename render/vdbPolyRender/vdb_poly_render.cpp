@@ -72,7 +72,7 @@ volumeBoundaryRender::volumeBoundaryRender(OGLWidget *parent) {
   std::vector<openvdb::Vec3f> pyramidVertices;
   std::vector<openvdb::Vec3f> pyramidNormals;
 
-  for (auto boundaryVolume : get<parameters::boundary_volumes>()) {
+  for (auto boundaryVolume : get<parameters::boundaryVolumes>()) {
     std::string vdbFile = get<parameters::config_folder>() + boundaryVolume.fileName.value;
     auto std_file = fs::path(vdbFile);
     auto tmp_file = std_file;
@@ -236,7 +236,7 @@ volumeBoundaryRender::volumeBoundaryRender(OGLWidget *parent) {
   update();
 }
 
-void volumeBoundaryRender::render() {
+void volumeBoundaryRender::render(bool pretty) {
   glBindVertexArray(vao);
 
   m_program->bind();

@@ -1,6 +1,6 @@
 #pragma once
-#include "utility/mathv2.h"
-enum kernel_kind { spline4 = 1, cohesion };
+#include <utility/mathv2.h>
+enum kernel_kind { spline4 = 1, cohesion, adhesion };
 
 template <typename T, typename U> struct support_helper {
   hostDeviceInline static auto calculate_support(T a, U b) {
@@ -78,6 +78,11 @@ hostDeviceInline auto support_from_volume(T volume) {
   return h;
 }
 
+template <kernel_kind K = kernel_kind::spline4, typename T>
+hostDeviceInline auto radius_from_volume(T volume) {
+	return math::power<SI::ratio<1, 3>>(volume * PI4O3_1);
+}
+
 KERNEL(kernel_kind::spline4, 1.825742f, 50)
 private:
 template <typename T, typename U> hostDeviceInline static auto derivative_impl(T r, U half) {
@@ -141,9 +146,9 @@ template <> struct Kernel<kernel_kind::cohesion> {
 
     auto p = math::cubic(h - r) * math::cubic(r);
     decltype(p) spline{0.f};
-    if (2.f * r > h && r <= h) {
+    if (2.f * r > half && r <= h) {
       spline = p;
-    } else if (r > 0.f && 2.f * r <= h) {
+    } else if (r > 0.f && r <= half) {
       spline = 2.f * p - math::cubic(h) * math::cubic(h) / 64.f;
     }
 
@@ -154,6 +159,41 @@ template <> struct Kernel<kernel_kind::cohesion> {
 
     return result / r;
   }
+};
+
+template <> struct Kernel<kernel_kind::adhesion> {
+
+	template <kernel_kind reference_kernel = kernel_kind::spline4>
+	hostDeviceInline static float kernel_size() {
+		return Kernel<reference_kernel>::kernel_size();
+	}
+
+	template <kernel_kind reference_kernel = kernel_kind::spline4, typename T, typename U>
+	hostDeviceInline static auto value(T a, U b) {
+		auto difference = a - b;
+		auto r = math::length3(difference);
+		auto half = support(a, b);
+		auto ks = Kernel<reference_kernel>::kernel_size();
+		auto h = half * ks;// *Kernel<reference_kernel>::kernel_size();
+
+		const auto sphere_normalization = 0.007f * math::power<SI::ratio<13,4>>(h);
+
+		auto p = math::power<SI::ratio<1,4>>(-4.f * r *r / h + 6.f * r - 2.f * h);
+		decltype(p) spline{ 0.f };
+		if (r > half && r <= h) {
+			spline = p;
+		}
+		else if (r > 0.f && 2.f * r <= h) {
+			spline = 0.f;
+		}
+
+		auto result = spline * sphere_normalization * difference;
+		using res = decltype(result / r);
+		if (r < 1e-12f || r > h)
+			return res{ 0.f, 0.f, 0.f, 0.f };
+
+		return result / r;
+	}
 };
 
 template <kernel_kind kernel> struct PressureKernel;
@@ -187,7 +227,7 @@ template <kernel_kind kernel> struct PressureKernel;
 template <kernel_kind reference_kernel> struct SpikyKernel {
   static const int32_t neighbor_number = 15;
 
-  template <typename T = float> hostDeviceInline static T kernel_size() { return float(2.f); }
+  template <typename T = float> hostDeviceInline static T kernel_size() { return (float)(Kernel<reference_kernel>::kernel_size()); }
 
   template <typename T, typename U> hostDeviceInline static auto gradient(T a, U b) {
     auto difference = ((a - b));
@@ -220,14 +260,14 @@ template <kernel_kind reference_kernel> struct SpikyKernel {
     auto h2 = h * h;
 
     // support constant
-    auto c = -45.f / (CUDART_PI_F * h2 * h2 * h2);
+    auto c = 15.f / (CUDART_PI_F * h2 * h2 * h2);
 
     // distance based part
     auto p = h - r;
 
-    auto spline = c * p * p;
+    auto spline = c * p * p * p;
 
-    if (r < 1e-12f)
+    if (r < 1e-12f || r > h)
       return decltype(spline){0.f};
     return spline;
   }

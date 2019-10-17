@@ -34,7 +34,7 @@ namespace atomic {
   template <typename T, typename std::enable_if_t<sizeof(T) == sizeof(char)> * = nullptr,          \
             typename... Ts>                                                                        \
   hostOnly T name(volatile__ T *ptr, Ts... args) {                                                 \
-    auto val = fun(reinterpret_cast<volatile__ char *>(ptr), *reinterpret_cast<char *>(&args)...); \
+    auto val = fun##8(reinterpret_cast<volatile__ char *>(ptr), *reinterpret_cast<char *>(&args)...); \
     return *reinterpret_cast<T *>(&val);                                                           \
   }                                                                                                \
   WRAP_WINDOWS16(name, fun)

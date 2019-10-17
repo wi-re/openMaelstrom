@@ -1,9 +1,15 @@
 #pragma once
+#include <iostream>
+#include <vector>
+//#define BOOST_MSVC
+//using std::is_assignable;
+//using std::is_volatile;
 #include <boost/type_traits/is_assignable.hpp>
 #include <boost/type_traits/is_volatile.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/property_tree/json_parser.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/algorithm/string.hpp>
 #include <locale>
 #include <sstream>
 #include <string>
@@ -12,6 +18,7 @@
 #include <utility/identifier/uniform.h>
 #include <utility/math.h>
 #include <utility/template/for_struct.h>
+#include <utility/helpers/log.h>
 #include <vector>
 
 template <typename Out> void split(const std::string &s, char delim, Out result) {
@@ -28,7 +35,20 @@ template <typename T> std::vector<std::string> split(const std::string &s, T del
   return elems;
 }
 
+inline std::string formatFloat(float f, int32_t precision = 2, int32_t width = 8) {
+	std::stringstream sstream;
+	sstream << std::fixed << std::setprecision(precision) << std::setw(width) << f;
+	return sstream.str();
+}
+
 namespace IO::config {
+
+
+inline bool iequals(std::string str1, std::string str2){
+	return ((str1.size() == str2.size()) && std::equal(str1.begin(), str1.end(), str2.begin(), [](char& c1, char& c2) {
+		return (c1 == c2 || ::tolower(c1) == ::tolower(c2));
+		}));
+}
 
 template <class T> using min_t = decltype(T::min);
 template <class Ptr> using min_type = detected_or_t<std::ptrdiff_t, min_t, Ptr>;
@@ -83,10 +103,12 @@ struct is_std_array<T,
 template <typename T> constexpr bool is_std_array_v = is_std_array<T>::value;
 
 template <typename T> auto convertString(std::string argument, std::string = "") {
+	if (argument == "inf")
+		argument = "0";
   if constexpr (std::is_same<T, std::string>::value)
     return argument;
   else if constexpr (std::is_same<T, bool>::value) {
-    return boost::iequals(argument, "true") ? true : false;
+    return iequals(argument, std::string("true")) ? true : false;
   } else if constexpr (math::dimension<T>::value != 0xDEADBEEF && math::dimension<T>::value > 0) {
     constexpr uint32_t dim = math::dimension<T>::value;
     using base_type = decltype(std::declval<T>().x);
@@ -213,6 +235,7 @@ template <typename T> std::string to_string(T arg) {
 }
 
 template <typename T> std::string convertToString([[maybe_unused]] T argument, std::string = "") {
+  setlocale(LC_ALL, "C");
   if constexpr (std::is_same<T, std::string>::value)
     return argument;
   else if constexpr (std::is_same<T, bool>::value) {
@@ -273,10 +296,15 @@ T parseComplex(T &value, std::string jsonName, boost::property_tree::ptree &pt) 
 template <typename T>
 std::vector<T> parseWildcard(std::vector<T> &value, std::string jsonName,
                              boost::property_tree::ptree &pt) {
-  for (uint32_t i = 1; i < 10; ++i) {
+	auto parentNode = pt.get_child_optional(jsonName.substr(0, jsonName.find_last_of(".")));
+	if (!parentNode) return value;
+	
+	LOG_INFO << "Parsing " << jsonName << " with " << parentNode.get().size() << " elements." << std::endl;
+  for (uint32_t i = 1; i < parentNode.get().size() + 1; ++i) {
     std::string current = jsonName;
-    char id = '0' + i;
-    std::replace(current.begin(), current.end(), '$', id);
+	std::string id = std::to_string(i);
+	boost::replace_all(current, std::string("$"), id);
+	LOG_INFO << current << std::endl;
     if (auto argument = pt.get_optional<std::string>(current)) {
       T val;
       parse(val, current, pt);
@@ -296,6 +324,7 @@ template <typename T> T parse(T &value, std::string jsonName, boost::property_tr
   } else if constexpr (std::is_same<uniform_type_template<T>, complex_uniform>::value)
     return parseComplex(value, jsonName, pt);
   else {
+	  //std::cout << jsonName << std::endl;
     if (auto argument = pt.get_optional<std::string>(jsonName))
       value = convertString<T>(argument.get());
   }
@@ -317,10 +346,12 @@ void parseComplexStore(T &value, std::string jsonName, boost::property_tree::ptr
 template <typename T>
 void parseWildcardStore(std::vector<T> &value, std::string jsonName,
                         boost::property_tree::ptree &pt) {
-  for (uint32_t i = 1; i < 10 && i <= value.size(); ++i) {
+  for (uint32_t i = 1; i <= value.size() + 1; ++i) {
     std::string current = jsonName;
-    char id = '0' + i;
-    std::replace(current.begin(), current.end(), '$', id);
+	std::string id = std::to_string(i);
+	boost::replace_all(current, std::string("$"), id);
+    //char id = '0' + i;
+    //std::replace(current.begin(), current.end(), '$', id);
     parseStore(value[i - 1], current, pt);
   }
 }

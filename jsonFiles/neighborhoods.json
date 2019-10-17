@@ -8,11 +8,20 @@
       "neighbor_info": false,
       "units": true,
       "functions": [ "calculate_neighborlist" ],
-      "depends_any": [ { "neighborhood": "constrained" } ],
+      "depends_any": [ { "modules::neighborhood": "constrained" } ],
       "parameters": [ "omega", "overhead_size", "target_neighbors", "support_leeway", "error_factor", "resort_algorithm", "neighborlimit" ],
       "input": [ "volume" ],
       "output": [ "position", "neighborList", "neighborListLength" ],
       "temporary": [ "closestNeighbor", "supportEstimate", "support", "supportMarker", "supportMarkerCompacted", "neighborListSwap", "neighborOverhead", "neighborOverheadCount" ]
+    },
+    "sortNeighborList": {
+      "description": "Module used to create a Constrained NeighborList based on the original paper. Fairly slow for adaptive simulations.",
+      "folder": "ancilliary",
+      "name": "sortedNeighborList",
+      "functions": [ "sort" ],
+      "depends_any": [ { "modules::neighborSorting": true } ],
+      "input": [ "volume", "position"],
+      "output": [ "neighborList", "neighborListLength" ]
     },
     "compactCellList": {
       "description": "Module used to create a Constrained NeighborList based on the original paper. Fairly slow for adaptive simulations.",
@@ -22,7 +31,7 @@
       "neighbor_info": false,
       "units": true,
       "functions": [ "calculate_neighborlist" ],
-      "depends_any": [ { "neighborhood": "compactCell" } ],
+      "depends_any": [ { "modules::neighborhood": "compactCell" } ],
       "input": [ "volume" ],
       "output": [ "position", "compactCellList", "compactCellScale", "neighborListLength" ]
     },
@@ -31,10 +40,10 @@
       "folder": "neighborhood",
       "name": "spanNeighborList",
       "cell_info": true,
-      "neighbor_info": false,
+      "neighbor_info": true,
       "units": true,
       "functions": [ "calculate_neighborlist" ],
-      "depends_any": [ { "neighborhood": "cell_based" } ],
+      "depends_any": [ { "modules::neighborhood": "cell_based" } ],
       "input": [ "volume" ],
       "output": [ "spanNeighborList", "position", "neighborListLength" ]
     },
@@ -47,9 +56,23 @@
       "units": true,
       "parameters": [ "neighborlimit" ],
       "functions": [ "calculate_neighborlist" ],
-      "depends_any": [ { "neighborhood": "basic" } ],
+      "depends_any": [ { "modules::neighborhood": "basic" } ],
       "input": [ "volume", "position" ],
       "output": [ "neighborList", "neighborListLength" ]
+    },
+    "compactNeighborMask": {
+      "description": "Module used to create a Constrained NeighborList based on the original paper. Fairly slow for adaptive simulations.",
+      "folder": "neighborhood",
+      "name": "compactNeighborMask",
+      "cell_info": true,
+      "neighbor_info": true,
+      "virtual_info": true,
+      "boundaryInfo": true,
+      "units": false,
+      "functions": [ "calculate_neighborlist" ],
+      "depends_any": [ { "modules::neighborhood": "masked" } ],
+      "input": [ "volume", "position" ],
+      "output": [ "neighborMask", "neighborListLength" ]
     }
   },
   "arrays":{
@@ -59,7 +82,15 @@
         "type": "compactSpan",
         "unit": "none",
         "kind": "particleData",
-        "depends_any": [ { "neighborhood": "compactCell" } ],
+        "depends_any": [ { "modules::neighborhood": "compactCell" } ],
+        "size": 28
+      },
+      "neighborMask": {
+        "description": "Contains the spans of candidate neighbors of all particles. At most this could contain 27 entries and the end marker. The spans work similar to hash_span and cell_span.",
+        "type": "compactCellNeighbors",
+        "unit": "none",
+        "kind": "particleData",
+        "depends_any": [ { "modules::neighborhood": "masked" } ],
         "size": 28
       },
       "compactCellScale": {
@@ -67,7 +98,7 @@
         "type": "int8_t",
         "unit": "none",
         "kind": "particleData",
-        "depends_any": [ { "neighborhood": "compactCell" } ],
+        "depends_any": [ { "modules::neighborhood": "compactCell" } ],
         "size": 1
       },
       "spanNeighborList": {
@@ -75,7 +106,7 @@
         "type": "neigh_span",
         "unit": "none",
         "kind": "particleData",
-        "depends_any": [ { "neighborhood": "cell_based" } ],
+        "depends_any": [ { "modules::neighborhood": "cell_based" } ],
         "size": 28
       },
       "neighborList": {
@@ -83,8 +114,8 @@
         "type": "int32_t",
         "unit": "none",
         "depends_any": [
-          { "neighborhood": "constrained" },
-          { "neighborhood": "basic" }
+          { "modules::neighborhood": "constrained" },
+          { "modules::neighborhood": "basic" }
         ],
         "kind": "particleData",
         "size": "get<parameters::neighborlimit>()"
@@ -101,12 +132,23 @@
     }
   },
   "uniforms":{
-    "modules":{
+    "modules": {
       "neighborhood": {
         "identifier": "neighborhood",
         "name": "Used to select the neighborhood search algorithm. constrained, basic and cell_based are valid options.",
         "type": "std::string",
         "default": "constrained"
+      },
+      "neighborSorting": {
+        "identifier": "neighborSorting",
+        "name": "Used to select the neighborhood search algorithm. constrained, basic and cell_based are valid options.",
+        "type": "int32_t",
+        "default": 1,
+        "range": {
+          "min": 0,
+          "max": 1,
+          "step": 1
+        }
       }
     }
   }

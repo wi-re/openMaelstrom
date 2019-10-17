@@ -8,10 +8,10 @@ cellFunctionType createCellNeighborList(SPH::spanNeighborList::Memory arrays) {
   checkedParticleIdx(i);
   auto x_i = arrays.position[i];
   auto h_i = support_H(x_i);
-  auto f_i = structure == cell_structuring::MLM ? powf(0.5f, (float)arrays.MLMResolution[i]) : 1.f;
+  auto f_i = structure == cell_structuring::compactMLM || structure == cell_structuring::MLM ? powf(0.5f, (float)arrays.MLMResolution[i]) : 1.f;
   //f_i = 1.f;
   auto code_equal = [=](auto x_i, auto x_j) {
-    if (structure == cell_structuring::MLM || (structure == cell_structuring::hashed && hash_width == hash_length::bit_64))
+    if (structure == cell_structuring::compactMLM || structure == cell_structuring::MLM || (structure == cell_structuring::hashed && hash_width == hash_length::bit_64))
       return position_to_morton(x_i, arrays, f_i) == position_to_morton(x_j, arrays, f_i);
     else
       return position_to_morton_32(x_i, arrays, f_i) == position_to_morton_32(x_j, arrays, f_i);
@@ -33,7 +33,7 @@ cellFunctionType createCellNeighborList(SPH::spanNeighborList::Memory arrays) {
         current = neigh_span{(uint32_t)j, (uint32_t)0};
         x_p = x_j;
       } else
-        current.length = (uint32_t)(j)-current.beginning;
+        current.length = (uint32_t)(j)- current.beginning;
     }
   }
   if (current.beginning != BITFIELD_MAX_VALUE)

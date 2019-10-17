@@ -11,9 +11,9 @@
       "neighbor_info": true,
       "functions": [ "estimate_density" ],
       "parameters": [ "boundaryDampening", "boundaryCounter", "ptcl_spacing" ],
-      "depends_any": [ { "density": "standard" } ],
-      "input": [ "position", "volume", "boundaryPlanes" ],
-      "output": [ "density" ]
+      "depends_any": [ { "modules::density": "standard" } ],
+      "input": [ "position", "volume", "boundaryPlanes", "particle_type", "rigidDensities"],
+      "output": [ "density", "matrixTest","lifetime","fluidDensity" ]
     },
     "shepardDensity": {
       "description": "Module used to implement a compact hashing style resorting algorithm on GPUs with 64 bit indices, limiting the domain to 2,097,152^3 cells. Additionally implements a multi level scheme that creates multiplle hash tables for a much faster adaptive simulaiton.",
@@ -22,11 +22,12 @@
       "neighbor_info": true,
       "virtual_info": true,
       "boundaryInfo": true,
+      "cell_info": true,
       "units": true,
-      "functions": [ "estimate_density" , "update_density"],
+      "functions": [ "estimate_density", "update_density" ],
       "parameters": [ "boundaryDampening", "boundaryCounter", "ptcl_spacing" ],
-      "depends_any": [ { "density": "shepard" } ],
-      "swap":["density"],
+      "depends_any": [ { "modules::density": "shepard" } ],
+      "swap": [ "density" ],
       "input": [ "position", "volume", "boundaryPlanes", "velocity" ]
     },
     "MLSDensity": {
@@ -36,10 +37,11 @@
       "neighbor_info": true,
       "virtual_info": true,
       "boundaryInfo": true,
+      "cell_info": true,
       "units": true,
       "functions": [ "estimate_density" ],
       "parameters": [ "boundaryDampening", "boundaryCounter", "ptcl_spacing" ],
-      "depends_any": [ { "density": "MLS" } ],
+      "depends_any": [ { "modules::density": "MLS" } ],
       "input": [ "position", "volume", "boundaryPlanes", "velocity" ],
       "output": [ "density" ]
     }

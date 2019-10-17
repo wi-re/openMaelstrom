@@ -1,28 +1,51 @@
 {
-  "functions":{
+  "functions": {
     "surfaceDistance": {
       "description": "Module used to iteratively created a stable surface distance for every particle in the simulation. Very slow.",
       "folder": "surface",
       "name": "distance",
       "units": true,
-      "cell_info": false,
+      "cell_info": true,
       "virtual_info": true,
       "boundaryInfo": true,
       "neighbor_info": true,
-      "depends_any": [ { "surfaceDistance": true } ],
+      "depends_any": [ { "modules::surfaceDistance": true } ],
       "functions": [ "distance" ],
       "parameters": [ "xsph_viscosity", "surface_levelLimit", "surface_neighborLimit", "surface_phiMin", "surface_phiChange", "surface_distanceFieldDistances" ],
-      "input": [ "position", "density", "volume",  "velocity" ],
+      "input": [ "position", "density", "volume", "velocity" ],
       "swap": [ "distanceBuffer", "surface_idxBuffer" ],
       "temporary": [ "decisionBuffer", "markerBuffer", "changeBuffer" ]
+    },
+    "surfaceDetection": {
+      "description": "Module used to iteratively created a stable surface distance for every particle in the simulation. Very slow.",
+      "folder": "surface",
+      "name": "detection",
+      "units": true,
+      "cell_info": true,
+      "virtual_info": true,
+      "boundaryInfo": true,
+      "neighbor_info": true,
+      "depends_any": [ { "modules::surfaceDetection": true } ],
+      "functions": [ "distance" ],
+      "parameters": [ "xsph_viscosity", 
+              "surface_levelLimit", "surface_neighborLimit", "surface_phiMin", "surface_phiChange", "surface_distanceFieldDistances" ],
+      "input": [ "position", "density", "volume", "velocity" ],
+      "swap": [ "distanceBuffer", "surface_idxBuffer" ],
+      "temporary": [ "decisionBuffer", "markerBuffer", "changeBuffer", "particleNormal" ]
     }
   },
   "arrays":{
   },
   "uniforms":{
-    "modules":{
+    "modules": {
       "surfaceDistance": {
         "identifier": "surfaceDistance",
+        "name": "Used to enable/disable surface distance calculations, required for adaptivity.",
+        "type": "bool",
+        "default": false
+      },
+      "surfaceDetection": {
+        "identifier": "surfaceDetection",
         "name": "Used to enable/disable surface distance calculations, required for adaptivity.",
         "type": "bool",
         "default": true
@@ -65,7 +88,7 @@
         "unit": "SI::m",
         "const": "false",
         "type": "float3",
-        "default": "4.f,4.f,4.f"
+        "default": "0.f,0.f,1.5f"
       },
       "surfaceIterations": {
         "identifier": "surface_iterations",

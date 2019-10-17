@@ -30,6 +30,7 @@
 #include <render/qGLWidget/oglwidget.h>
 #include <vector>
 #include<utility/helpers/pathfinder.h>
+#include <utility/helpers/arguments.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_ui(new Ui::MainWindow) {
@@ -59,9 +60,10 @@ MainWindow::MainWindow(QWidget *parent)
   setCentralWidget(m_openGLWidget = new OGLWidget);
   addDockWidget(Qt::BottomDockWidgetArea,
                 m_consoleDocker = &console::instance());
-  if (get<parameters::gl_record>()) {
+  m_consoleDocker->setVisible(false);
+  if (get<parameters::gl_record>() || arguments::cmd::instance().renderToFile || arguments::cmd::instance().rtx) {
     m_consoleDocker->setFloating(true);
-    m_consoleDocker->setVisible(!m_consoleDocker->isVisible());
+    m_consoleDocker->setVisible(false);
   }
 }
 MainWindow::~MainWindow() {
@@ -152,7 +154,7 @@ void MainWindow::createMenu() {
   m_ui->menuBar->installEventFilter(this);
 }
 void MainWindow::createHotkeys() {
-  QObject::connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Q), this),
+  QObject::connect(new QShortcut(QKeySequence(Qt::ALT + Qt::Key_Q), this),
                    &QShortcut::activated, [=]() { QApplication::quit(); });
   QObject::connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_G), this),
                    &QShortcut::activated, [=]() {

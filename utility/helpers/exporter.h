@@ -9,7 +9,16 @@ template<typename P>
 auto writeArray(std::ostream& oss){
     if(!P::valid() || P::ptr == nullptr)
       return;
-    std::string str(P::variableName);
+  	if (
+		!(
+			P::kind == memory_kind::particleData	||
+			P::kind == memory_kind::rigidData		||
+			P::kind == memory_kind::spareData		||
+			P::kind == memory_kind::individualData
+		)
+		) return;
+    
+    std::string str(P::qualifiedName);
     auto size = (int32_t) str.size();
     oss.write(reinterpret_cast<char*>(&size), sizeof(size));
     oss.write(str.c_str(), size);
@@ -22,15 +31,17 @@ auto writeArray(std::ostream& oss){
     auto p = P::ptr;
     T* ptr = new T[allocSize / elemSize];
     cudaDeviceSynchronize();
-    std::cout << P::variableName << "= " << ptr << " : " << p << " -> " << allocSize << std::endl;
+    //std::cout << P::qualifiedName << "= " << ptr << " : " << p << " -> " << allocSize << std::endl;
     cudaMemcpy(ptr, p, allocSize, cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
     oss.write(reinterpret_cast<char*>(ptr), allocSize);
-    delete[] ptr;
+    std::string comp = P::variableName;
+    if (comp.compare("rigidFiles") != 0) 
+      delete[] ptr;
 }
 template<typename P>
 auto writeParameter(std::ostream& oss){
-    std::string str(P::variableName);
+    std::string str(P::jsonName);
     auto size = (int32_t) str.size();
     oss.write(reinterpret_cast<char*>(&size), sizeof(size));
     oss.write(str.c_str(), size);
@@ -60,7 +71,7 @@ auto writeArray(M&& memory, std::ostream& oss){
     auto p = P::get_member(memory);
     T* ptr = new T[allocSize / elemSize];
     cudaDeviceSynchronize();
-    std::cout << P::variableName << "= " << ptr << " : " << p << " -> " << allocSize << std::endl;
+    //std::cout << P::variableName << "= " << ptr << " : " << p << " -> " << allocSize << std::endl;
     cudaMemcpy(ptr, p, allocSize, cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
     oss.write(reinterpret_cast<char*>(ptr), allocSize);

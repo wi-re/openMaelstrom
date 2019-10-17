@@ -1,5 +1,6 @@
 #include <SPH/resort/resort_mlm.cuh>
 #include <utility/include_all.h>
+#include <dummy.h>
 
 namespace SPH {
 	namespace resort_mlm {
@@ -25,8 +26,8 @@ namespace SPH {
 		basicFunctionType cudaCellTableb(SPH::resort_mlm::Memory arrays, int32_t threads, int32_t *compact, float ratio) {
 			checkedThreadIdx(i);
 			auto x_i = arrays.position[compact[i]];
-			if (compact[i + 1] == arrays.num_ptcls)
-				arrays.cellSpan[i].length++;
+			//if (compact[i + 1] == arrays.num_ptcls)
+			//	arrays.cellSpan[i].length++;
 			arrays.resortIndex[i] = position_to_hash(x_i, arrays.min_coord, (arrays.cell_size.x) * ratio, arrays.hash_entries);
 			arrays.particleparticleIndex[i] = i;
 		}
@@ -128,14 +129,14 @@ void SPH::resort_mlm::resortParticles(Memory mem) {
 	//auto thrust_ptr = [](auto ptr) { return thrust::device_pointer_cast(ptr); };
 	
 	if (mem.num_ptcls > 0) {
-		
+		 
 		auto min_coord = math::to<float3>(algorithm::reduce_min(arrays::position::ptr, mem.num_ptcls));
 		min_coord -= 2.f * mem.cell_size;
-		get<parameters::min_coord>() = math::min(min_coord, *parameters::min_domain::ptr);
+		//get<parameters::min_coord>() = math::min(min_coord, *parameters::min_domain::ptr);
 		get<parameters::min_coord>() = min_coord;
 		
-		auto max_coord =
-			math::max(math::to<float3>(algorithm::reduce_max(arrays::position::ptr, mem.num_ptcls)), *parameters::max_domain::ptr);
+		//auto max_coord = math::max(math::to<float3>(algorithm::reduce_max(arrays::position::ptr, mem.num_ptcls)), *parameters::max_domain::ptr);
+		auto max_coord = math::to<float3>(algorithm::reduce_max(arrays::position::ptr, mem.num_ptcls));
 		max_coord += 2.f * mem.cell_size;
 		get<parameters::max_coord>() = max_coord;
 		
@@ -159,11 +160,13 @@ void SPH::resort_mlm::resortParticles(Memory mem) {
 
 		if (parameters::hash_size{} == hash_length::bit_32) {
 			float factor_morton = 1.f / ((float)(1024 / v));
+			get<parameters::zOrderScale>() = factor_morton;
 			launch<hashParticles>(mem.num_ptcls, mem, factor_morton, 1.f);
 			algorithm::sort_by_key(mem.num_ptcls, mem.ZOrder_32, mem.particleparticleIndex);
 		}
 		else {
 			float factor_morton = 1.f / ((float)(1048576 / v));
+			get<parameters::zOrderScale>() = factor_morton;
 			launch<hashParticles>(mem.num_ptcls, mem, factor_morton, 1.f);			
 			algorithm::sort_by_key(mem.num_ptcls, mem.ZOrder_64, mem.particleparticleIndex);
 		}
@@ -218,7 +221,11 @@ void SPH::resort_mlm::resortParticles(Memory mem) {
 		cuda::sync();
 		if (iter != 0) {
 			auto diff = get<parameters::num_ptcls>() - iter;
-			//std::cout << "Removing " << get<parameters::num_ptcls>()  - diff << "particles" << std::endl;
+			if (!logger::silent) {
+				std::cout << "Removing " << get<parameters::num_ptcls>() - diff << "particles" << std::endl;
+				std::cout << "Old particle count: " << get<parameters::num_ptcls>() << std::endl;
+				std::cout << "New particle count: " << diff << std::endl;
+			}
 			get<parameters::num_ptcls>() = static_cast<int32_t>(diff);
 			mem.num_ptcls = static_cast<int32_t>(diff);
 		}
@@ -236,7 +243,7 @@ void SPH::resort_mlm::resortParticles(Memory mem) {
 
 		get<parameters::valid_cells>() = 0;
 		get<parameters::collision_cells>() = 0;
-
+		get<parameters::occupiedCells>().clear();
 		for (int32_t i = 0; i < (int32_t)parameters::mlm_schemes{}; ++i) {
 			float factor = 1.f;
 			for (int ii = 0; ii < i; ++ii)
@@ -261,6 +268,7 @@ void SPH::resort_mlm::resortParticles(Memory mem) {
 			launch<buildCellTable2>(diff, mem, diff, arrays::compactparticleIndex::ptr, factor);
 			cuda::sync();
 			diff--;
+			get<parameters::occupiedCells>().push_back(diff);
 			algorithm::sort_by_key(diff, mem.resortIndex, mem.particleparticleIndex);
 			cuda::sync();
 			launch<sort>(diff, mem, diff, cellSpan, mem.cellSpanSwap);
@@ -275,5 +283,10 @@ void SPH::resort_mlm::resortParticles(Memory mem) {
 
 			get<parameters::valid_cells>() += diff;
 		}
+		//cudaDeviceSynchronize();
+		//for (int32_t i = 0; i < get<parameters::occupiedCells>()[0]; ++i) {
+		//	std::cout << arrays::cellSpan::ptr[i].beginning << std::endl;
+		//}
+		//cudaDeviceSynchronize();
 	}
 }

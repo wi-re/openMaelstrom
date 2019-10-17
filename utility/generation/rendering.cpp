@@ -1,4 +1,3 @@
-#pragma once
 #include <utility/include_all.h>
 #include <utility/generation.h>
 
@@ -171,13 +170,20 @@ render_tuple ObjFromObjWithNormals(fs::path path) {
 }
 
 render_tuple ObjWithNormals(fs::path path) {
+	auto[texture, min, max, dimension, centerOfMass, inertia] = generation::cudaVolume(path.string());
+	render_tuple t;
+
   if (path.extension() == ".vdb")
-    return ObjFromVDBWithNormals(path);
-  if (path.extension() == ".obj")
-    return ObjFromObjWithNormals(path);
+    t = ObjFromVDBWithNormals(path);
+  else if (path.extension() == ".obj")
+    t = ObjFromObjWithNormals(path);
   else {
     std::cerr << "Unknown file extension in " << path.string() << std::endl;
     throw std::invalid_argument("Unknown extension");
   }
+  for (auto& v : std::get<0>(t)) {
+	  v -= float3{ centerOfMass.x, centerOfMass.y, centerOfMass.z };
+  }
+  return t;
 }
 } // namespace generation

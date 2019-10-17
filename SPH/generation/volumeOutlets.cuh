@@ -13,6 +13,8 @@ namespace SPH{
 			parameter<parameters::rest_density> rest_density;
 			parameter<parameters::max_numptcls> max_numptcls;
 
+			write_array<arrays::debugArray> debugArray;
+
 			// parameters
 			parameter<parameters::volumeOutletCounter> volumeOutletCounter;
 
@@ -55,7 +57,7 @@ constexpr static const bool inlet = false;
 		//valid checking function
 		inline bool valid(Memory){
 			bool condition = false;
-			condition = condition || get<parameters::volumeOutlets>() == true;
+			condition = condition || get<parameters::modules::volumeOutlets>() == true;
 			return condition;
 		}
 		

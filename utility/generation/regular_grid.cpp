@@ -1,4 +1,3 @@
-#pragma once
 #include <utility/include_all.h>
 #include <utility/generation.h>
 
@@ -12,7 +11,7 @@ std::vector<vdb::Vec4f> VolumeToRegular(vdb::FloatGrid::Ptr grid, vdb::Vec3d min
 
   auto [mind, maxd] = getDomain();
 
-  auto gen_position_offset = [=](auto offset, int32_t i, int32_t j, int32_t k) {
+  auto gen_position_offset = [=, spacing = spacing](auto offset, int32_t i, int32_t j, int32_t k) {
     vdb::Vec4f initial{(float)i, (float)j, (float)k, 0.f};
     return offset + initial * spacing;
   };

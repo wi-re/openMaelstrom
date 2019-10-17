@@ -21,7 +21,13 @@
 	  return std::make_pair(bottom, top);
   }
   Triangle::Triangle(int32_t i0_, int32_t i1_, int32_t i2_, std::vector<Vertex>& vtx):i0(i0_),i1(i1_),i2(i2_) {
-	  auto&[vtxA, vtxB, vtxC] = getVertices(vtx);
+	  //STRANGE REFERENCE (WAS WITH & AFTER AUTO)
+	  auto[vtxA, vtxB, vtxC] = getVertices(vtx);
+	//   auto vtxs = getVertices(vtx);
+	//   auto& vtxA = std::get<0>(vtxs);
+	//   auto& vtxB = std::get<1>(vtxs);
+	//   auto& vtxC = std::get<2>(vtxs);
+
 	  center = (vtxA.position + vtxB.position + vtxC.position) / 3.f;
 
 	  auto AB = vtxB.position - vtxA.position;
@@ -77,7 +83,9 @@
   }
 
   void Triangle::recalculate(std::vector<Vertex>& vtx) {
-	  auto&[vtxA, vtxB, vtxC] = getVertices(vtx);
+	  //STRANGE REFERENCE (WAS WITH & AFTER AUTO)
+
+	  auto[vtxA, vtxB, vtxC] = getVertices(vtx);
 	  center = (vtxA.position + vtxB.position + vtxC.position) / 3.f;
 
 	  auto AB = vtxB.position - vtxA.position;

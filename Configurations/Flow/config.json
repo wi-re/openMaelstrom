@@ -1,26 +1,19 @@
 {
   "modules": {
     "alembic": false,
-    "pressure": "IISPH17",
-    "surfaceDistance": true,
+    "pressure": "DFSPH",
     "volumeBoundary": true,
-    "volumeOutlets": true,
-    "adaptive": false,
-    "movingBoundaries":true,
+    "adaptive": true,
     "viscosity": false,
-    "gl_record": false,
+    "rayTracing": true,
     "error_checking": true,
-    "drag": "Gissler17",
-    "resorting": "mlm",
-    "support":"constrained",
-    "hash_width": "64bit",  
+    "resorting": "compactMLM",
+    "support": "constrained",
     "neighborhood": "constrained",
-    "launch_cfg": "device",
-    "density": "standard"
+    "volumeOutlets": true
   },
   "surfaceDistance": {
-    "distanceFieldDistances": "3.0 3.0 3.0",
-    "level_limit":"-30.f"
+    "level_limit": "-10.f"
   },
   "adaptive": {
     "resolution": 64,
@@ -29,21 +22,17 @@
     "blendsteps": 15,
     "limit": -20.0
   },
-  "alembics": {
-    "fps": 24
-  },
   "color_map": {
-    "auto": true,
+    "auto": 0,
     "buffer": "velocity",
-    "min": 50,
-    "max": 0,
-    "map": "viridi",
-    "flip":1
+    "min": 0,
+    "max": 50,
+    "map": "viridis"
   },
   "inlet_volumes": {
     "volume1": {
       "file": "Volumes/Inlet.vdb",
-      "dur": -1,
+      "dur": 10,
       "delay": 0.0,
       "vel": "0 30 0 0"
     }
@@ -54,49 +43,77 @@
       "rate": 1e16
     }
   },
-  "particle_volumess": {
-    "volume1": {
-      "file": "Volumes/Fluid.vdb",
-      "concentration": 0.0,
-      "timeToEmit": 0.0,
-      "kind": "vdb"
-    }
-  },
-  "moving_planes": {
-    "plane1": {
-      "pos": "0 75 0",
-      "norm": "0 1 0",
-      "dir": "0 -1 0",
-      "mag": 20,
-      "freq": 0.1
-    }
-  },
   "boundary_volumes": {
     "volume1": {
-      "file": "Volumes/pillars.vdb"
+      "file": "Volumes/pillars.vdb",
+      "kind": 2
     }
   },
   "particle_settings": {
-    "viscosity": 42.5,
-    "tension_akinci": 0.125,
-    "tension": 0.1,
-    "gravity": 9.81,
-    "radius": 0.35,
-    "density": 998,
-    "air_velocity": "0 0 0"
+    "radius": 0.5
   },
-  "IISPH": {
-    "eta": 0.0001
+  "rtxScene": {
+    "box1": {
+      "maxPosition": "FLT_MAX FLT_MAX -1",
+      "minPosition": "-FLT_MAX -FLT_MAX -4",
+      "emission": "0 0 0",
+      "color": "0.2 0.2 0.2",
+      "material": 0
+    },
+    "box3": {
+      "maxPosition": "-151 FLT_MAX FLT_MAX",
+      "minPosition": "-502 -FLT_MAX -FLT_MAX",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 0
+    },
+    "box2": {
+      "maxPosition": "256 180 192",
+      "minPosition": "-30 -175 -192",
+      "emission": "1 1 1",
+      "color": "1 1 1",
+      "material": 0
+    },
+    "sphere1": {
+      "position": "0 0 -1060",
+      "radius": "10000",
+      "emission": "0.55 0.55 0.55",
+      "color": "0.075 0.075 0.075",
+      "material": 0
+    },
+    "sphere2": {
+      "position": "-96 0 66",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 3
+    },
+    "sphere3": {
+      "position": "-96 72 58",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "0.5 0 0",
+      "material": 0
+    },
+    "sphere4": {
+      "position": "-96 64 124",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 4
+    }
   },
   "render_settings": {
     "render_clamp": "0 0 0",
-    "camera_position": "81.8602 -105.966 -60.2886", 
-    "camera_angle": "-73 0 140.5", 
+    "camera_positions": "196.5 2.03258e-06 91",
+    "camera_angles": "180 0 -90",
     "resolution": "1920 1080",
+    "camera_position": "52.8584 -87.4441 27.4224", 
+    "camera_angle": "180 0 315", 
     "gl_file": "adapt_break2.mp4"
   },
   "simulation_settings": {
-    "densitySteps":5,
+    "densitySteps": 5,
     "boundaryObject": "Objects/domain.obj",
     "domainWall": "xyz-",
     "domainWalls": "x+-y+-z-",
@@ -104,8 +121,8 @@
     "auto_boundary": "true",
     "boundaryDampening": 0.999,
     "timestep_min": 0.0001,
-    "timestep_max": 0.01,
-    "neighborlimit": 70,
+    "timestep_max": 0.006,
+    "neighborlimit": 120,
     "external_force": "0 0 -9.8 0"
   }
 }

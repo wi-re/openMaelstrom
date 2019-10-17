@@ -5,32 +5,11 @@
 #include <string>
 #include <utility/math.h>
 #include <utility/template/metafunctions.h>
+#include <experimental/filesystem>
 
 namespace arguments {
 
-HAS_STATIC_MEMBER(rear_ptr);
 
-template <typename T> std::string type_name() {
-  if constexpr (std::is_same<T, float4>::value)
-    return "float4";
-  if constexpr (std::is_same<T, float3>::value)
-    return "float3";
-  if constexpr (std::is_same<T, float2>::value)
-    return "float2";
-  if constexpr (std::is_same<T, uint4>::value)
-    return "uint4";
-  if constexpr (std::is_same<T, uint3>::value)
-    return "uint3";
-  if constexpr (std::is_same<T, uint2>::value)
-    return "uint2";
-  if constexpr (std::is_same<T, float>::value)
-    return "float";
-  if constexpr (std::is_same<T, uint32_t>::value)
-    return "uint";
-  if constexpr (std::is_same<T, int32_t>::value)
-    return "int";
-  return typeid(T).name();
-}
 
 void loadbar(unsigned int x, unsigned int n, uint32_t w = 50, std::ostream &io = std::cout);
 
@@ -64,6 +43,10 @@ struct cmd {
   double time_pause = 50.0;
 
   bool timers = true;
+  bool rtx = false;
+
+  bool renderToFile = false;
+  std::experimental::filesystem::path renderDirectory = std::string("");
 };
 
 } // namespace arguments

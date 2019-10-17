@@ -1,24 +1,18 @@
 {
   "modules": {
-    "alembic": false,
-    "pressure": "IISPH17",
-    "surfaceDistance": false,
+    "pressure": "DFSPH",
     "volumeBoundary": true,
-    "adaptive": false,
+    "adaptive": true,
     "viscosity": false,
-    "gl_record": false,
+    "rayTracing": true,
     "error_checking": true,
-    "drag": "Gissler17",
-    "resorting": "mlm",
-    "support":"none",
-    "hash_width": "64bit",
-    "neighborhood": "compactCell",
-    "launch_cfg": "device",
-    "density": "standard"
+    "resorting": "compactMLM",
+    "support": "constrained",
+    "neighborhood": "constrained"
   },
   "surfaceDistance": {
-    "distanceFieldDistances": "3.0 3.0 3.0",
-    "level_limit":"-30.f"
+    "distanceFieldDistances": "0.0 0.0 1.5",
+    "level_limit": "-20.f"
   },
   "adaptive": {
     "resolution": 64,
@@ -27,29 +21,12 @@
     "blendsteps": 15,
     "limit": -20.0
   },
-  "alembics": {
-    "fps": 24
-  },
   "color_map": {
-    "auto": true,
-    "buffer": "density",
-    "min": 50,
-    "max": 0,
-    "map": "viridi"
-  },
-  "inlet_volume": {
-    "volume1": {
-      "file": "Volumes/Inlet1 - Copy.vdb",
-      "dur": 900,
-      "delay": 0.0,
-      "vel": "0 -30 0 0"
-    },
-    "volume2": {
-      "file": "Volumes/Inlet2 - Copy.vdb",
-      "dur": 900.0,
-      "delay": 0.0,
-      "vel": "0 30 0 0"
-    }
+    "auto": 0,
+    "buffer": "velocity",
+    "min": 0,
+    "max": 30,
+    "map": "plasma"
   },
   "particle_volumes": {
     "volume1": {
@@ -67,32 +44,81 @@
   },
   "boundary_volumes": {
     "volume1": {
-      "file": "Volumes/pillars.vdb"
+      "file": "Volumes/pillars.vdb",
+      "kind": 2
     }
   },
   "particle_settings": {
-    "viscosity": 42.5,
-    "tension_akinci": 0.125,
-    "tension": 0.1,
-    "gravity": 9.81,
-    "radius": 0.35,
-    "density": 998,
-    "air_velocity": "0 0 0"
+    "radius": 0.5
   },
-  "IISPH": {
-    "eta": 0.0001
+  "rtxScene": {
+    "box1": {
+      "maxPosition": "FLT_MAX FLT_MAX -1",
+      "minPosition": "-FLT_MAX -FLT_MAX -4",
+      "emission": "0 0 0",
+      "color": "0.2 0.2 0.2",
+      "material": 0
+    },
+    "box3": {
+      "maxPosition": "-151 FLT_MAX FLT_MAX",
+      "minPosition": "-502 -FLT_MAX -FLT_MAX",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 0
+    },
+    "box2": {
+      "maxPosition": "256 192 192",
+      "minPosition": "228 -192 -192",
+      "emission": "1 1 1",
+      "color": "1 1 1",
+      "material": 0
+    },
+    "sphere1": {
+      "position": "0 0 -1060",
+      "radius": "10000",
+      "emission": "0.55 0.55 0.55",
+      "color": "0.075 0.075 0.075",
+      "material": 0
+    },
+    "spheres2": {
+      "position": "-96 0 66",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 3
+    },
+    "spheres3": {
+      "position": "-96 72 8",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "0.5 0 0",
+      "material": 0
+    },
+    "spheres4": {
+      "position": "-96 64 124",
+      "radius": "32",
+      "emission": "0 0 0",
+      "color": "1 1 1",
+      "material": 4
+    }
   },
   "render_settings": {
     "render_clamp": "0 0 0",
-    "camera_position2": "77.253 -40.5281 -71.0931", 
-    "camera_angle2": "-60.5 0 126", 
-    "camera_position": "-123 0 55.5", 
-    "camera_angle": "180 0 90", 
+    "camera_position5": "-77.2553 -86.0991 37.3887",
+    "camera_angle5": "164.5 0 56",
+    "camera_position4": "-15.8272 9.87833 20.1286",
+    "camera_angle4": "179 0 127",
+    "camera_position2": "77.253 -40.5281 -71.0931",
+    "camera_angle2": "-60.5 0 126",
+    "camera_position": "-93.7772 59.1285 57.4027",
+    "camera_angle": "158.5 0 127.5",
+    "camera_position3": "-123 0 55.5",
+    "camera_angle3": "180 0 90",
     "resolution": "1920 1080",
     "gl_file": "adapt_break2.mp4"
   },
   "simulation_settings": {
-    "densitySteps":5,
+    "densitySteps": 5,
     "boundaryObject": "Objects/domain.obj",
     "domainWall": "xyz-",
     "domainWalls": "x+-y+-z+-",

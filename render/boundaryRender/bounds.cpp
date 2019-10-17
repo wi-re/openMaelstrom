@@ -9,9 +9,10 @@ uniform vec4 camera_right;
 uniform vec4 camera_up;
 uniform mat4 perspective_matrix;
 uniform mat4 view_matrix;
-uniform vec3 min_domain;
-uniform vec3 max_domain;
+uniform vec3 vrtxDomainMin;
+uniform vec3 vrtxDomainMax;
 uniform vec3 render_clamp;
+uniform float vrtxDomainEpsilon;
 
 uniform sampler1D           colorRamp;
 
@@ -26,9 +27,13 @@ void main() {
 	//color = vec4(renderIntensity,renderIntensity,renderIntensity,1.f);
 	color = vec4(0.4,0.4,0.4,1.0);
 	vec3 pos;
-	pos.x = posAttr.x < 0.f ? min_domain.x : max_domain.x;
-	pos.y = posAttr.y < 0.f ? min_domain.y : max_domain.y;
-	pos.z = posAttr.z < 0.f ? min_domain.z : max_domain.z;
+	pos.x = posAttr.x < 0.f ? vrtxDomainMin.x + 0.5f : vrtxDomainMax.x - 0.5f;
+	pos.y = posAttr.y < 0.f ? vrtxDomainMin.y + 0.5f : vrtxDomainMax.y - 0.5f;
+	pos.z = posAttr.z < 0.f ? vrtxDomainMin.z + 0.5f : vrtxDomainMax.z - 0.5f;
+	
+	pos.x = abs(pos.x) > 1e10f ? sign(pos.x) * 1e7f : pos.x;
+	pos.y = abs(pos.y) > 1e10f ? sign(pos.y) * 1e7f : pos.y;
+	pos.z = abs(pos.z) > 1e10f ? sign(pos.z) * 1e7f : pos.z;
 
 	eyeSpacePos = view_matrix * vec4(pos.xyz ,1.f);
 	//eyeSpacePos += vec4(posAttr.xyz * position.w*2.f,0.f);
@@ -77,11 +82,17 @@ BoundsRenderer::BoundsRenderer(OGLWidget *parent) {
   initializeOpenGLFunctions();
   m_program = new QOpenGLShaderProgram(parent);
   m_program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
+  LOG_INFO << "Compiling vertex shader for " << "BoundaryRenderer" << std::endl;
+  LOG_INFO << m_program->log().toStdString() << std::endl;
   m_program->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
+  LOG_INFO << "Compiling fragment shader for " << "BoundaryRenderer" << std::endl;
+  LOG_INFO << m_program->log().toStdString() << std::endl;
   glGenVertexArrays(1, &vao);
   glBindVertexArray(vao);
 
   m_program->link();
+  LOG_INFO << "Linking program for " << "BoundaryRenderer" << std::endl;
+  LOG_INFO << m_program->log().toStdString() << std::endl;
   m_posAttr = m_program->attributeLocation("posAttr");
   m_colAttr = m_program->attributeLocation("uvAttr");
 
@@ -155,7 +166,8 @@ BoundsRenderer::BoundsRenderer(OGLWidget *parent) {
   update();
 }
 
-void BoundsRenderer::render() {
+void BoundsRenderer::render(bool pretty) {
+	if (get<parameters::boundsRender>() != 1) return;
   glBindVertexArray(vao);
 
   m_program->bind();

@@ -13,6 +13,8 @@ namespace SPH{
 			parameter_u<parameters::rest_density> rest_density;
 			parameter_u<parameters::max_numptcls> max_numptcls;
 
+			write_array_u<arrays::debugArray> debugArray;
+
 			// parameters
 			parameter_u<parameters::boundaryCounter> boundaryCounter;
 			parameter_u<parameters::boundaryDampening> boundaryDampening;
@@ -21,6 +23,7 @@ namespace SPH{
 			// input resources (mapped as read only)
 			// output resources (mapped as read/write)
 			write_array_u<arrays::boundaryPlanes> boundaryPlanes;
+			write_array_u<arrays::boundaryPlaneVelocity> boundaryPlaneVelocity;
 
 			// swap resources (mapped as read/write)
 			swap_array_u<arrays::position> position;
@@ -33,7 +36,7 @@ namespace SPH{
 			
 			using swap_arrays = std::tuple<arrays::position, arrays::velocity>;
 			using input_arrays = std::tuple<>;
-			using output_arrays = std::tuple<arrays::boundaryPlanes>;
+			using output_arrays = std::tuple<arrays::boundaryPlanes, arrays::boundaryPlaneVelocity>;
 			using temporary_arrays = std::tuple<>;
 			using basic_info_params = std::tuple<parameters::num_ptcls, parameters::timestep, parameters::radius, parameters::rest_density, parameters::max_numptcls>;
 			using cell_info_params = std::tuple<>;
@@ -51,7 +54,7 @@ constexpr static const bool inlet = false;
 		//valid checking function
 		inline bool valid(Memory){
 			bool condition = false;
-			condition = condition || get<parameters::movingBoundaries>() == true;
+			condition = condition || get<parameters::modules::movingBoundaries>() == true;
 			return condition;
 		}
 		

@@ -79,7 +79,7 @@ using applyRatios = SI::unit_ty<action<SI::Base::m, typename T::_m, U>,
                                 action<SI::Base::mol, typename T::_mol, U>,
                                 action<SI::Base::cd, typename T::_cd, U>>;
 // Variadic helper for applying multiple units at once
-template <_action_ty action, typename T, typename... Us> struct var_applyUnits;
+template <_action_ty action, typename... Us> struct var_applyUnits;
 template <_action_ty action, typename T> struct var_applyUnits<action, T> {
   using type = T;
 };
@@ -92,6 +92,10 @@ struct var_applyUnits<action, T, U, Us...> {
   using type =
       typename var_applyUnits<action, applyUnits<action, T, U>,
                               Us...>::type;
+};
+template<_action_ty action>
+struct var_applyUnits<action> {
+	using type = SI::unit_ty<>;
 };
 // Variadic hellper for applying multiple ratios at once
 template <_action_ty action, typename T, typename... Us> struct var_applyRatios;

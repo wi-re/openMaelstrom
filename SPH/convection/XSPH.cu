@@ -13,16 +13,24 @@ neighFunctionType xsph_viscosity(SPH::XSPH::Memory arrays) {
 
   auto beta_i = getBlendWeight(arrays, i);
 
-  auto sum = vel[i] - arrays.xsph_viscosity * 0.25f * ( beta_i)* vel[i] * SWH::spline4(pos[i], arrays);
+  auto sum = vel[i];// - arrays.xsph_viscosity * 0.25f * (beta_i)* vel[i] * pV_b * pW_ib * 0.f;
 
   iterateNeighbors(j) {
     auto beta_j = getBlendWeight(arrays, j); 
     auto beta_ij = 0.5f * (beta_i + beta_j);
     auto viscosity_constant = arrays.xsph_viscosity * (1.f + beta_ij);
 
-    sum += viscosity_constant * vol[j] / den[j] * (vel[j] - vel[i]) * W_ij; 
+    sum += viscosity_constant * vol[j] / (den[j] + den[i]) * 2.f * (vel[j] - vel[i]) * W_ij; 
   }
   arrays.velocity.second[i] = sum;
+#ifdef DEBUG_INVALID_PARITLCES
+  auto v_old = vel[i].val;
+  auto v_add = sum.val;
+  if (v_add.x != v_add.x)
+	  printf("%s: Invalid particle %d: " _VECSTR " + " _VECSTR "\n",
+		  __FUNCTION__, i,
+		  _VEC(v_old), _VEC(v_add));
+#endif
 }
 
 neighFunction(xsphViscosity, xsph_viscosity, "XSPH Viscosity", caches<float4, float4, float, float>{});

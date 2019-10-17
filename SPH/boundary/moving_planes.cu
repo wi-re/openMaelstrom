@@ -74,9 +74,10 @@ basicFunction(correctVelocity, correct_velocity_moving, "Moving Planes: correct 
 // Launcher to correct the position of particles against a single boundary
 basicFunction(correctPosition,correct_position_moving, "Moving Planes: correct position");
 // Launcher to correct the position of particles against a single boundary
-basicFunctionType update_plane_moving(int32_t threads, SPH::moving_planes::Memory arrays, float4_u<void_unit_ty> E, int32_t idx) {
+basicFunctionType update_plane_moving(int32_t threads, SPH::moving_planes::Memory arrays, float4_u<void_unit_ty> E, float4_u<SI::velocity> v, int32_t idx) {
   checkedThreadIdx(i);
   arrays.boundaryPlanes[idx] = E;
+  arrays.boundaryPlaneVelocity[idx] = v;
 }
 basicFunction(updatePlane,update_plane_moving, "Moving Planes: update planes");
 
@@ -84,7 +85,7 @@ basicFunction(updatePlane,update_plane_moving, "Moving Planes: update planes");
 // calls the appropriate correction functions once for each boundary. This method can be called
 // safely if no boundaries exist.
 void SPH::moving_planes::correct_position(Memory mem) {
-  for (auto plane : get<parameters::moving_planes>()) {
+  for (auto plane : get<parameters::movingPlanes>()) {
     float t     = plane.duration.value;
     float f     = plane.frequency.value;
     float m     = plane.magnitude.value;
@@ -112,7 +113,7 @@ void SPH::moving_planes::correct_position(Memory mem) {
 // calls the appropriate correction functions once for each boundary. This method can be called
 // safely if no boundaries exist.
 void SPH::moving_planes::correct_velocity(Memory mem) {
-  for (auto plane : get<parameters::moving_planes>()) {
+  for (auto plane : get<parameters::movingPlanes>()) {
     auto t = plane.duration.value;
     auto f = plane.frequency.value;
     auto m = plane.magnitude.value;
@@ -136,7 +137,7 @@ void SPH::moving_planes::correct_velocity(Memory mem) {
 }
 
 void SPH::moving_planes::update_boundaries(Memory mem){
-  for (auto plane : get<parameters::moving_planes>()) {
+  for (auto plane : get<parameters::movingPlanes>()) {
     auto t = plane.duration.value;
     auto f = plane.frequency.value;
     auto m = plane.magnitude.value;
@@ -148,7 +149,7 @@ void SPH::moving_planes::update_boundaries(Memory mem){
 
     auto p_prev = plane.plane_position.value + dir * m * sinf(2.f * CUDART_PI_F * f * (get<parameters::simulationTime>() - get<parameters::timestep>()));
     auto p_diff = p - p_prev;
-    //auto v_diff = -p_diff / get<parameters::timestep>();
+    auto v_diff = -p_diff / get<parameters::timestep>();
 
     auto nn     = math::normalize(n);
     auto d      = math::dot3(p, nn);
@@ -156,7 +157,8 @@ void SPH::moving_planes::update_boundaries(Memory mem){
 
     if (t < get<parameters::simulationTime>() && t > 0.f)
       continue;
-    launch<updatePlane>(1, 1, mem, E, idx);
+	uFloat4<SI::velocity> v{ math::castTo<float4>(v_diff) };
+    launch<updatePlane>(1, 1, mem, E, v, idx);
   }
 
 }

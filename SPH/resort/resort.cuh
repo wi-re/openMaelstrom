@@ -13,6 +13,8 @@ namespace SPH{
 			parameter_u<parameters::rest_density> rest_density;
 			parameter_u<parameters::max_numptcls> max_numptcls;
 
+			write_array_u<arrays::debugArray> debugArray;
+
 			// parameters
 			parameter_u<parameters::grid_size> grid_size;
 			parameter_u<parameters::min_domain> min_domain;
@@ -55,7 +57,7 @@ constexpr static const bool inlet = false;
 		//valid checking function
 		inline bool valid(Memory){
 			bool condition = false;
-			condition = condition || get<parameters::sorting>() == "linear_cell";
+			condition = condition || get<parameters::modules::sorting>() == "linear_cell";
 			return condition;
 		}
 		

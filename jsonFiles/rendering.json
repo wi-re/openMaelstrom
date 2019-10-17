@@ -9,7 +9,7 @@
       "functions": [ "visualizeParticles" ],
       "parameters": [],
       "input": [ "position" ],
-      "output": [ "renderIntensity" ]
+      "output": [ "renderArray" ]
     },
     "auxilliaryMLM": {
       "description": "Module used to implement a simple resorting algorithm that uses a cell entry for every actual cell in the domain. Does not support infinite domains.",
@@ -18,56 +18,631 @@
       "cell_info": true,
       "neighbor_info": true,
       "resort": false,
-      "units": true,
+      "units": false,
       "functions": [ "generateAuxilliaryGrid" ],
-      "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size", "auxScale" ],
-      "depends_any": [ { "rayTracing": true } ],
+      "parameters": [ "grid_size", "min_domain", "max_domain", "cell_size", "resort_algorithm", "hash_entries", "min_coord", "auxScale", "internalLimit", "vrtxNeighborLimit" ,"pruneVoxel"],
+      "depends_all": [
+        { "modules::rayTracing": true },
+        { "modules::sorting": "compactMLM" }
+      ],
       "input": [ "position", "volume" ],
-      "output": [ "classification", "auxHashTable", "auxCellInformation", "auxCellSurface" ]
+      "output": [ "structureArrays::classification", "auxHashMap", "auxCellSpan", "auxIsoDensity", "auxTest" ],
+      "temporary": [ "resortIndex", "auxDistance", "particleparticleIndex", "ZOrder_64", "ZOrder_32", "compactCellSpanSwap", "cellparticleIndex", "compactparticleIndex" ]
+    },
+    "anisotropy": {
+      "description": "Module used to implement a simple resorting algorithm that uses a cell entry for every actual cell in the domain. Does not support infinite domains.",
+      "folder": "kernelSupport",
+      "name": "anisotropy",
+      "cell_info": true,
+      "neighbor_info": true,
+      "resort": false,
+      "units": false,
+      "functions": [ "generateAnisotropicMatrices" ],
+      "parameters": [ "anisotropicLambda", "anisotropicNepsilon", "anisotropicKs", "anisotropicKr", "anisotropicKn" ],
+      "depends_all": [
+        { "modules::rayTracing": true },
+        { "modules::anisotropicSurface": true },
+        { "modules::sorting": "compactMLM" }
+      ],
+      "input": [ "position", "volume", "density" ],
+      "output": [ "centerPosition", "anisotropicMatrices", "auxDistance", "auxTest" ]
     }
   },
   "arrays":{
     "renderArrays": {
-      "auxHashTable": {
+      "anisotropicMatrices": {
         "description": ".",
         "unit": "none",
-        "type": "hash_span",
-        "depends_any": [ { "rayTracing": true } ],
+        "type": "float",
+        "size": 9,
+        "depends_all": [
+          {
+            "modules::rayTracing": true,
+            "modules::anisotropicSurface": true
+          }
+        ],
         "kind": "particleData"
       },
-      "previousPosition": {
+      "centerPosition": {
         "description": ".",
         "unit": "none",
         "type": "float4",
-        "depends_any": [ { "rayTracing": true } ],
+        "depends_all": [
+          {
+            "modules::rayTracing": true,
+            "modules::anisotropicSurface": true
+          }
+        ],
+        "kind": "particleData"
+      },
+      "auxTest": {
+        "description": ".",
+        "unit": "none",
+        "type": "float",
+        "depends_any": [ { "modules::rayTracing": true } ],
+        "kind": "particleData"
+      },
+      "auxIsoDensity": {
+        "description": ".",
+        "unit": "none",
+        "type": "float",
+        "depends_any": [ { "modules::rayTracing": true } ],
+        "kind": "particleData"
+      },
+      "auxDistance": {
+        "description": ".",
+        "unit": "none",
+        "type": "float",
+        "depends_any": [ { "modules::rayTracing": true } ],
+        "kind": "particleData"
+      },
+      "auxHashMap": {
+        "description": ".",
+        "unit": "none",
+        "type": "compactListEntry",
+        "depends_any": [ { "modules::rayTracing": true } ],
+        "kind": "particleData"
+      },
+      "auxCellSpan": {
+        "description": ".",
+        "unit": "none",
+        "type": "compactListEntry",
+        "depends_any": [ { "modules::rayTracing": true } ],
         "kind": "particleData"
       },
       "auxCellInformation": {
         "description": ".",
         "unit": "none",
         "type": "cellInformation",
-        "depends_any": [ { "rayTracing": true } ],
+        "depends_all": [
+          {
+            "modules::rayTracing": true,
+            "modules::anisotropicSurface": true
+          }
+        ],
         "kind": "particleData"
       },
       "auxCellSurface": {
         "description": ".",
         "unit": "none",
         "type": "cellSurface",
-        "depends_any": [ { "rayTracing": true } ],
+        "depends_all": [
+          {
+            "modules::rayTracing": true,
+            "modules::anisotropicSurface": true
+          }
+        ],
         "kind": "particleData"
       }
     }
   },
   "uniforms": {
+    "rtxScene": {
+      "sphere$": {
+        "identifier": "rtxSpheres",
+        "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles once.",
+        "default": "",
+        "type": "std::vector<rtxSphere>",
+        "complex_type": {
+          "name": "rtxSphere",
+          "description": {
+            "radius": {
+              "identifier": "radius",
+              "type": "float",
+              "default": "1.f"
+            },
+            "position": {
+              "identifier": "position",
+              "type": "float3",
+              "default": "0.f,0.f,0.f"
+            },
+            "emission": {
+              "identifier": "emission",
+              "type": "float3",
+              "default": "0.f,0.f,0.f"
+            },
+            "color": {
+              "identifier": "color",
+              "type": "float3",
+              "default": "0.f,0.f,0.f"
+            },
+            "material": {
+              "identifier": "refl_t",
+              "type": "int32_t",
+              "default": "0"
+            }
+          }
+        }
+      },
+        "box$": {
+          "identifier": "rtxBoxes",
+          "name": "Complex parameter that describes a volume that should be loaded from a file and emitted as particles once.",
+          "default": "",
+          "type": "std::vector<rtxBox>",
+          "complex_type": {
+            "name": "rtxBox",
+            "description": {
+              "maxPosition": {
+                "identifier": "maxPosition",
+                "type": "std::string",
+                "default": "\"1.f 1.f 1.f\""
+              },
+              "minPosition": {
+                "identifier": "minPosition",
+                "type": "std::string",
+                "default": "\"0.f 0.f 0.f\""
+              },
+              "emission": {
+                "identifier": "emission",
+                "type": "float3",
+                "default": "0.f,0.f,0.f"
+              },
+              "color": {
+                "identifier": "color",
+                "type": "float3",
+                "default": "0.f,0.f,0.f"
+              },
+              "material": {
+                "identifier": "refl_t",
+                "type": "int32_t",
+                "default": "0"
+              }
+            }
+          }
+        }
+      },
     "modules": {
       "rayTracing": {
         "identifier": "rayTracing",
         "name": "Used to enable/disable rayTracing using auxMLM.",
         "type": "bool",
         "default": true
+      },
+      "anisotropicSurface": {
+        "identifier": "anisotropicSurface",
+        "name": "Used to enable/disable rayTracing using auxMLM.",
+        "type": "bool",
+        "default": true
+      },
+      "renderMode": {
+        "identifier": "renderMode",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "const": false,
+        "default": 0
       }
     },
     "render_settings": {
+      "apertureRadius": {
+        "identifier": "apertureRadius",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "0.15f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "2.f",
+          "step": "0.01f"
+        }
+      },
+      "anisotropicLambda": {
+        "identifier": "anisotropicLambda",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "0.980198f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "1.f",
+          "step": "0.01f"
+        }
+      },
+      "anisotropicNepsilon": {
+        "identifier": "anisotropicNepsilon",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "40",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "60",
+          "step": "1"
+        }
+      },
+      "anisotropicKs": {
+        "identifier": "anisotropicKs",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "1.f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "2.f",
+          "step": "0.001f"
+        }
+      },
+      "anisotropicKr": {
+        "identifier": "anisotropicKr",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "3.0f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "10.f",
+          "step": "0.1f"
+        }
+      },
+      "anisotropicKn": {
+        "identifier": "anisotropicKn",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "0.188806f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "2.f",
+          "step": "0.01f"
+        }
+      },
+      "focalDistance": {
+        "identifier": "focalDistance",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "100.f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "100.f",
+          "step": "0.1f"
+        }
+      },
+      "vrtxNeighborLimit": {
+        "identifier": "vrtxNeighborLimit",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "100",
+          "step": "1"
+        }
+      },
+      "vrtxFluidBias": {
+        "identifier": "vrtxFluidBias",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "0.05f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "2.5f",
+          "step": "0.01f"
+        }
+      },
+      "vrtxSurfaceExtraction": {
+        "identifier": "vrtxSurfaceExtraction",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "const": false,
+        "default": "0"
+      },
+      "vrtxRenderMode": {
+        "identifier": "vrtxRenderMode",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "const": false,
+        "default": "0"
+      },
+      "vrtxRenderGrid": {
+        "identifier": "vrtxRenderGrid",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "vrtxRenderFluid": {
+        "identifier": "vrtxRenderFluid",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "1",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "vrtxRenderSurface": {
+        "identifier": "vrtxRenderSurface",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "1",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "vrtxDisplayStats": {
+        "identifier": "vrtxDisplayStats",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "1",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "vrtxRenderBVH": {
+        "identifier": "vrtxRenderBVH",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "1",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "vrtxBVHMaterial": {
+        "identifier": "vrtxBVHMaterial",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "1",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "4",
+          "step": "1"
+        }
+      },
+      "vrtxRenderNormals": {
+        "identifier": "vrtxRenderNormals",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "vrtxMaterial": {
+        "identifier": "vrtxMaterial",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "4",
+          "step": "1"
+        }
+      },
+      "vrtxDomainEpsilon": {
+        "identifier": "vrtxDomainEpsilon",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "-1.762063f",
+        "const": false,
+        "range": {
+          "min": "-3.f",
+          "max": "3.f",
+          "step": "0.01f"
+        }
+      },
+      "vrtxDomainMin": {
+        "identifier": "vrtxDomainMin",
+        "name": ".",
+        "type": "float3",
+        "unit": "none",
+        "default": "-1.f, -1.f, -1.f",
+        "const": false
+      },
+      "vrtxDomainMax": {
+        "identifier": "vrtxDomainMax",
+        "name": ".",
+        "type": "float3",
+        "unit": "none",
+        "default": "1.f, 1.f, 1.f",
+        "const": false
+      },
+      "vrtxDebeerScale": {
+        "identifier": "vrtxDebeerScale",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "0.056f",
+        "const": false,
+        "range": {
+          "min": "0.001f",
+          "max": "1.f",
+          "step": "0.001f"
+        }
+      },
+      "vrtxDebeer": {
+        "identifier": "vrtxDebeer",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float3",
+        "unit": "none",
+        "default": "0.94902f, 0.76863f, 0.505823f",
+        "const": false,
+        "range": {
+          "min": "0.f,0.f,0.f",
+          "max": "1.f,1.f,1.f",
+          "step": "0.001f,0.001f,0.001f"
+        }
+      },
+      "bvhColor": {
+        "identifier": "bvhColor",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float3",
+        "unit": "none",
+        "default": "0.566f, 0.621f, 0.641f",
+        "const": false,
+        "range": {
+          "min": "0.f,0.f,0.f",
+          "max": "1.f,1.f,1.f",
+          "step": "0.001f,0.001f,0.001f"
+        }
+      },
+      "vrtxFluidColor": {
+        "identifier": "vrtxFluidColor",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float3",
+        "unit": "none",
+        "default": "0.897f, 0.917f, 1.f",
+        "const": false,
+        "range": {
+          "min": "0.f,0.f,0.f",
+          "max": "1.f,1.f,1.f",
+          "step": "0.001f,0.001f,0.001f"
+        }
+      },
+      "vrtxDepth": {
+        "identifier": "vrtxDepth",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "vrtxDepthScale": {
+        "identifier": "vrtxDepthScale",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float",
+        "unit": "none",
+        "default": "0.1f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "2.f",
+          "step": "0.001f"
+        }
+      },
+      "vrtxWMin": {
+        "identifier": "vrtxWMin",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float",
+        "unit": "none",
+        "default": "0.4f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "1.f",
+          "step": "0.001f"
+        }
+      },
+      "vrtxR": {
+        "identifier": "vrtxR",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float",
+        "unit": "none",
+        "default": "0.586f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "1.f",
+          "step": "0.001f"
+        }
+      },
+      "camera_fov": {
+        "identifier": "camera_fov",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float",
+        "unit": "none",
+        "default": "96.f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "256.f",
+          "step": "0.1f"
+        }
+      },
+      "vrtxWMax": {
+        "identifier": "vrtxWMax",
+        "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
+        "type": "float",
+        "unit": "none",
+        "default": "2.f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "4.f",
+          "step": "0.001f"
+        }
+      },
+      "vrtxBounces": {
+        "identifier": "vrtxBounces",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "5",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "64",
+          "step": "1"
+        }
+      },
       "auxScale": {
         "identifier": "auxScale",
         "name": ".",
@@ -81,6 +656,105 @@
           "step": "0.25f"
         }
       },
+      "vrtxIOR": {
+        "identifier": "vrtxIOR",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "1.3f",
+        "const": false,
+        "range": {
+          "min": "1.f",
+          "max": "5.f",
+          "step": "0.1f"
+        }
+      },
+      "renderSteps": {
+        "identifier": "renderSteps",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "25",
+        "const": false,
+        "range": {
+          "min": "1",
+          "max": "50",
+          "step": "1"
+        }
+      },
+      "internalLimit": {
+        "identifier": "internalLimit",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "40.f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "64.f",
+          "step": "1.f"
+        }
+      },
+      "auxCellCount": {
+        "identifier": "auxCellCount",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "const": true
+      },
+      "axesRender": {
+        "identifier": "axesRender",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "1",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "boundsRender": {
+        "identifier": "boundsRender",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "1",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "floorRender": {
+        "identifier": "floorRender",
+        "name": ".",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "axesScale": {
+        "identifier": "axesScale",
+        "name": ".",
+        "type": "float",
+        "unit": "none",
+        "default": "1.f",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "64.f",
+          "step": "1.f"
+        }
+      },
+
       "render_clamp": {
         "identifier": "render_clamp",
         "name": "Describes a clipping plane for the simulaltion relative to the simulations AABB used for rendering. Negative values flip what side is clipped. Useful value: {0.f,0.f,0.f}.",
@@ -146,6 +820,72 @@
       }
     },
     "color_map": {
+      "transfer_mode": {
+        "identifier": "transfer_mode",
+        "name": "Function applied to value before applying colormap",
+        "type": "std::string",
+        "default": "linear",
+        "unit": "none",
+        "const": false,
+        "presets": "linear,cubicRoot,cubic,squareRoot,square,log"
+      },
+      "mapping_mode": {
+        "identifier": "mapping_mode",
+        "name": "Function applied to value before applying colormap",
+        "type": "std::string",
+        "default": "linear",
+        "unit": "none",
+        "const": false,
+        "presets": "linear,cubicRoot,cubic,squareRoot,square,log"
+      },
+      "vectorMode": {
+        "identifier": "vectorMode",
+        "name": "Function applied to value before applying colormap",
+        "type": "std::string",
+        "default": "length",
+        "unit": "none",
+        "const": false,
+        "presets": "length,x,y,z,w"
+      },
+      "visualizeDirection": {
+        "identifier": "visualizeDirection",
+        "name": "Function applied to value before applying colormap",
+        "type": "int32_t",
+        "default": 0,
+        "unit": "none",
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "vectorScale": {
+        "identifier": "vectorScale",
+        "name": "Function applied to value before applying colormap",
+        "type": "float",
+        "default": "1",
+        "unit": "none",
+        "const": false,
+        "range": {
+          "min": "0.f",
+          "max": "10.f",
+          "step": "0.1f"
+        }
+      },
+      "vectorScaling": {
+        "identifier": "vectorScaling",
+        "name": "Represents the lower boundary of the color mapping. Useful values depend on what is being visualized.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": 0,
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
       "min": {
         "identifier": "render_min",
         "name": "Represents the lower boundary of the color mapping. Useful values depend on what is being visualized.",
@@ -154,8 +894,8 @@
         "default": "0.f",
         "const": false,
         "range": {
-          "min": "-100.f",
-          "max": "100.f",
+          "min": "-10.f",
+          "max": "10.f",
           "step": "0.5f"
         }
       },
@@ -167,18 +907,54 @@
         "default": "1.f",
         "const": false,
         "range": {
-          "min": "-100.f",
-          "max": "100.f",
+          "min": "-10.f",
+          "max": "10.f",
           "step": "0.5f"
         }
+      },
+      "transfer_fn": {
+        "identifier": "transfer_fn",
+        "name": "Used to enable/disable automatically scaling the visualization range to the full input range.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": 0,
+        "const": true,
+        "visible": false
+      },
+      "pruneVoxel": {
+        "identifier": "pruneVoxel",
+        "name": "Used to enable/disable automatically scaling the visualization range to the full input range.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": 0,
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
+      },
+      "mapping_fn": {
+        "identifier": "mapping_fn",
+        "name": "Used to enable/disable automatically scaling the visualization range to the full input range.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": 0,
+        "const": true,
+        "visible": false
       },
       "auto": {
         "identifier": "render_auto",
         "name": "Used to enable/disable automatically scaling the visualization range to the full input range.",
-        "type": "bool",
+        "type": "int",
         "unit": "none",
-        "default": true,
-        "const": false
+        "default": 1,
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
       },
       "map_flipped": {
         "identifier": "map_flipped",
@@ -186,7 +962,12 @@
         "type": "int",
         "unit": "none",
         "default": 0,
-        "const": false
+        "const": false,
+        "range": {
+          "min": "0",
+          "max": "1",
+          "step": "1"
+        }
       },
       "buffer": {
         "identifier": "render_buffer",
@@ -194,7 +975,8 @@
         "type": "std::string",
         "unit": "none",
         "default": "density",
-        "const": false
+        "const": false,
+        "presets": "[](){std::vector<std::string> names;iterateArraysList([&](auto x){using Ty = std::decay_t<decltype(x)>;if (Ty::valid() && Ty::kind == memory_kind::particleData)names.push_back(Ty::qualifiedName);});return names;}()"
       },
       "map": {
         "identifier": "render_colormap",
@@ -202,8 +984,9 @@
         "type": "std::string",
         "unit": "none",
         "default": "inferno",
-        "const": false
+        "const": false,
+        "presets": "[]() {std::vector <std::string> colorMaps;auto f = resolveFile(\"cfg/style.css\");auto p = f.parent_path().string();if (*(p.end() - 1) == '/' || *(p.end() - 1) == '\\\\')p = p.substr(0, p.length() - 1);std::replace(p.begin(), p.end(), '\\\\', '/');for (auto& p : std::experimental::filesystem::directory_iterator(p))if (p.path().extension().string().find(\".png\") != std::string::npos)colorMaps.push_back(p.path().filename().replace_extension(\"\").string());return colorMaps; }()"
       }
     }
-  }
+    }
 }    

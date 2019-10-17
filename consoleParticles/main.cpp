@@ -3,7 +3,7 @@
 #include <utility/include_all.h>
 #include <utility/helpers/arguments.h>
 #include <config/config.h>
-#include <boost/filesystem.hpp>
+#include <boost/filesystem.hpp>  
 namespace fs = boost::filesystem;
 
 int main(int argc, char *argv[]) {
@@ -21,21 +21,27 @@ int main(int argc, char *argv[]) {
     return 0;
 
   cuda_particleSystem::instance().init_simulation();
+  cuda_particleSystem::instance().running = false;
+  cuda_particleSystem::instance().step();
   cuda_particleSystem::instance().running = true;
+
   try {
     if (cmd_line.end_simulation_frame) {
       while (get<parameters::frame>() < cmd_line.timesteps) {
+		  cuda_particleSystem::instance().renderFlag = true;
         cuda_particleSystem::instance().step();
         arguments::loadbar(get<parameters::frame>(), cmd_line.timesteps, 80);
       } 
     } else if(cmd_line.end_simulation_time){
       while (get<parameters::simulationTime>() < cmd_line.time_limit) {
+		  cuda_particleSystem::instance().renderFlag = true;
         cuda_particleSystem::instance().step();
 
         arguments::loadbar((int32_t)(get<parameters::simulationTime>() / cmd_line.time_limit * 100.f), 100, 80);
       }
     }else{{
       while (get<parameters::simulationTime>() < 1.0f) {
+		  cuda_particleSystem::instance().renderFlag = true;
         cuda_particleSystem::instance().step();
 
         arguments::loadbar((int32_t)(get<parameters::simulationTime>() / 1.f * 100.f), 100, 80);
@@ -47,7 +53,7 @@ int main(int argc, char *argv[]) {
   }
 
   cmd_line.finalize();
-
+     
   return 0;
 }
  

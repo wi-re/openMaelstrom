@@ -1,4 +1,3 @@
-#pragma once
 #include <utility/include_all.h>
 #include <utility/generation.h>
 #include <utility/mathv2.h>
@@ -16,6 +15,7 @@
 #include <vector>
 #include <map>
 #include <cfloat>
+#include <utility/generation/regular_grid_centered.h>
 
 namespace generation {
 grid_tuple loadVDBFile(fs::path fileName) {
@@ -344,6 +344,21 @@ std::vector<vdb::Vec4f> generateParticles(std::string fileName, float r, genTech
       return VolumeToHex(grid, min_vdb, max_vdb, r);
     else
       return VolumeToRegular(grid, min_vdb, max_vdb, r);
+  } else {
+    return ObjToShell(path, r);
+  }
+}
+
+std::vector<vdb::Vec4f> generateParticlesRigid(std::string fileName, float r, genTechnique kind, bool clampToDomain, 
+  std::map<std::string, float3> maxmin) {
+  auto path = resolveFile(fileName, {get<parameters::config_folder>()});
+  std::vector<vdb::Vec4f> particles;
+  if (kind == genTechnique::hex_grid || kind == genTechnique::square_grid) {
+    auto [grid, min_vdb, max_vdb] = fileToVDB(path);
+    if (kind == genTechnique::hex_grid)
+      return VolumeToHex(grid, min_vdb, max_vdb, r);
+    else
+      return VolumeToRegularCentered(grid, min_vdb, max_vdb, r, maxmin);
   } else {
     return ObjToShell(path, r);
   }

@@ -117,6 +117,15 @@ neighFunctionType computeDeformation(SPH::GisslerDrag::Memory arrays) {
 
 	// Equation (14)
 	
+#ifdef DEBUG_INVALID_PARITLCES
+	auto a_old = arrays.acceleration[i].val;
+	auto a_add = accel.val;
+	if (a_add.x != a_add.x)
+		printf("%s: Invalid particle %d: " _VECSTR " + " _VECSTR " : %f %f %f %f %f %f " _VECSTR  _VECSTR "\n",
+			__FUNCTION__, i,
+			_VEC(a_old), _VEC(a_add), arrays.volume[i].val, arrays.rest_density.val, rho_a.val, vi_rel_norm.val, C_Di.val, A_i.val,
+		_VEC(va.val), _VEC(vi.val));
+#endif
 	arrays.acceleration[i] += accel;
 }
  

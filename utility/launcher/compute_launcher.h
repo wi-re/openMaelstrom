@@ -126,35 +126,102 @@ struct computeLauncher {
 			std::cout << "Function " << m_name << " finished." << std::endl;
 		}
 	}
+	template <typename T> hostOnly void host_launch(int2 elements, Vs... args) {
+		if (m_timeCode && m_host_timer == nullptr)
+			m_host_timer = TimerManager::createTimer(m_name, m_col, false);
+		cuda::sync();
+		h_blockDim = int3{ elements.x * elements.y , 1, 1 };
+		h_blockIdx = int3{ 0, 0, 0 };
+		h_threadIdx = int3{ 1, 0, 0 };
+		if (m_host_timer != nullptr)
+			m_host_timer->start();
+		tbb::parallel_for(tbb::blocked_range<int32_t>(0, elements.x * elements.y),
+			[&](const tbb::blocked_range<int32_t> &range) {
+			for (int32_t i = range.begin(); i < range.end(); ++i) {
+				h_threadIdx.x = i;
+				m_kernel(args...);
+			}
+		});
+		if (m_host_timer != nullptr)
+			m_host_timer->stop();
+		cuda::sync();
+	}
+	template <typename T> hostOnly void device_launch(int2 elements, Vs... args) {
+		if (m_timeCode && m_device_timer == nullptr)
+			m_device_timer = TimerManager::createGPUTimer(m_name, m_col, false);
+		int gridSize = (elements.x + m_blockSize - 1) / m_blockSize;
+		if (get<parameters::error_checking>()) {
+			cuda::sync();
+		}
+		if (m_device_timer != nullptr)
+			m_device_timer->start();
+#ifdef __CUDACC__
+		launch_cuda_function << <elements.x, elements.y, m_sharedMemory >> > (m_kernel, args...);
+#endif
+		if (m_device_timer != nullptr)
+			m_device_timer->stop();
+		if (get<parameters::error_checking>()) {
+			cuda::sync();
+			cuda::checkMessages(m_name, m_file, m_line, error_level::thread_synchronize);
+		}			
+	}
+	template <typename T> hostOnly void debug_launch(int2 elements, Vs... args) {
+		std::cout << "Starting function: " << m_name << " ( " << m_file << " @ " << m_line << ")"
+			<< std::endl;
+		if (m_host_timer == nullptr)
+			m_host_timer = TimerManager::createTimer(m_name, m_col, false);
+		cuda::sync(m_name);
+		h_blockDim = int3{ elements.x * elements.y, 1, 1 };
+		h_blockIdx = int3{ 0, 0, 0 };
+		h_threadIdx = int3{ 1, 0, 0 };
+		if (m_host_timer != nullptr)
+			m_host_timer->start();
+		for (int32_t i = 0; i < elements.x * elements.y; ++i) {
+			h_threadIdx.x = i;
+			m_kernel(args...);
+		}
+		if (m_host_timer != nullptr)
+			m_host_timer->stop();
+		cuda::sync(m_name);
+		if (m_host_timer != nullptr) {
+			auto &samples = m_host_timer->getSamples();
+			auto last = samples[samples.size() - 1];
+			std::cout << "Function " << m_name << " finished after: " << last.second << "ms."
+				<< std::endl;
+		}
+		else {
+			std::cout << "Function " << m_name << " finished." << std::endl;
+		}
+	}
 
 	template <launch_config cfg, typename> struct Delegator;
 	template <typename T> struct Delegator<launch_config::device, T> {
-		template <typename L, typename... Us>
-		static void call(L *launcher, int32_t elements, Us &&... args) {
+		template <typename L, typename Ty, typename... Us>
+		static void call(L *launcher, Ty elements, Us &&... args) {
 			launcher->TEMPLATE_TOKEN device_launch<void>(elements, std::forward<Us>(args)...);
 		}
 	};
 	template <typename T> struct Delegator<launch_config::host, T> {
-		template <typename L, typename... Us>
-		static void call(L *launcher, int32_t elements, Us &&... args) {
+		template <typename L, typename Ty, typename... Us>
+		static void call(L *launcher, Ty elements, Us &&... args) {
 			launcher->TEMPLATE_TOKEN host_launch<void>(elements, std::forward<Us>(args)...);
 		}
 	};
 	template <typename T> struct Delegator<launch_config::debug, T> {
-		template <typename L, typename... Us>
-		static void call(L *launcher, int32_t elements, Us &&... args) {
+		template <typename L, typename Ty, typename... Us>
+		static void call(L *launcher, Ty elements, Us &&... args) {
 			launcher->TEMPLATE_TOKEN debug_launch<void>(elements, std::forward<Us>(args)...);
 		}
 	};
 	template <typename T> struct Delegator<launch_config::pure_host, T> {
-		template <typename L, typename... Us>
-		static void call(L *launcher, int32_t elements, Us &&... args) {
+		template <typename L, typename Ty, typename... Us>
+		static void call(L *launcher, Ty elements, Us &&... args) {
 			launcher->TEMPLATE_TOKEN host_launch<void>(elements, std::forward<Us>(args)...);
 		}
 	};
 	template <typename T> struct Delegator<launch_config::_used_for_template_specializations, T> {
-		template <typename L, typename... Us>
-		static void call(L *launcher, int32_t elements, Us &&... args) {
+		template <typename L, typename Ty, typename... Us>
+		static void call(L *launcher, Ty elements, Us &&... args) {
 			launch_config target = parameters::target{};
 			if (parameters::regex_cfg{}) {
 				auto matcher = [&](std::string str, launch_config cfg) {
@@ -189,7 +256,7 @@ struct computeLauncher {
 		}
 	};
 
-	template <launch_config cfg> hostOnly void operator()(int32_t elements, Vs &&... args) {
+	template <launch_config cfg, typename Ty> hostOnly void operator()(Ty elements, Vs &&... args) {
 		static_assert(cfg == config || config == launch_config::_used_for_template_specializations ||
 			(config == launch_config::host &&
 			(cfg == launch_config::host || cfg == launch_config::debug ||

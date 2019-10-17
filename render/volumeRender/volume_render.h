@@ -8,7 +8,7 @@ class volumeRender : public Renderer {
 public:
   volumeRender(OGLWidget *parent, std::string fileName);
   virtual void update() override;
-  virtual void render() override;
+  virtual void render(bool pretty) override;
   virtual bool valid() override;
   virtual void toggle() override;
 
@@ -22,6 +22,9 @@ public:
   GLuint IBO;
   GLuint VXO;
   GLuint VUV;
+
+  Matrix4x4 modelMat;
+  GLuint modelUniform = 0;
 
   int32_t tris = 0;
 

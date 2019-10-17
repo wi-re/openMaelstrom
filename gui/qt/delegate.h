@@ -11,6 +11,7 @@
 #include "ui_mainwindow.h"
 #include <IO/config/parser.h>
 #include <QComboBox>
+#include <iostream>
 #include <QLineEdit>
 #include <QLabel>
 #include <QFormLayout>
@@ -97,13 +98,21 @@ public:
     // Additional UI elements are only created if the value is editable.
     if constexpr (info::modifiable == true) {
       // Add a combo box if there are any preset values stored as meta data
-      if constexpr (!std::is_same_v<std::decay_t<presets_type<info>>, std::ptrdiff_t>) {
-        m_presetComboBox = new QComboBox();
-        m_layout->addRow(new QLabel(""), m_presetComboBox);
-        constexpr auto arr = info::presets;
-        for (auto p : arr)
-          m_presetComboBox->addItem(p);
-      }
+		auto arr = info::getPresets();
+		if (arr.size() != 0) {
+			m_presetComboBox = new QComboBox();
+			m_layout->addRow(new QLabel(""), m_presetComboBox);
+			for (auto p : arr)
+				m_presetComboBox->addItem(QString::fromStdString(p));
+		}
+
+      //if constexpr (!std::is_same_v<std::decay_t<presets_type<info>>, std::ptrdiff_t>) {
+      //  m_presetComboBox = new QComboBox();
+      //  m_layout->addRow(new QLabel(""), m_presetComboBox);
+      //  constexpr auto arr = info::presets;
+      //  for (auto p : arr)
+      //    m_presetComboBox->addItem(p);
+      //}
       // Add a slider for every dimension of data (e.g. 4 for a 4d value)
       if constexpr (min_type_v<info> && max_type_v<info>) {
         m_minValue = info::min;
@@ -120,7 +129,12 @@ public:
           if (!std::is_same<std::decay_t<step_type<info>>, std::ptrdiff_t>::value) {
             auto diff = (m_maxValue) - (m_minValue);
             auto steps = diff / (m_stepValue);
-            slider->setMaximum(static_cast<int>(fn(steps)) + 1);
+			if (std::is_integral_v<typename info::type>) {
+				slider->setMaximum(fn(m_maxValue));
+				slider->setMinimum(fn(m_minValue));
+			}
+			else
+				slider->setMaximum(static_cast<int>(fn(steps)) + 1);
           }
           auto min_s = slider->minimum();
           auto max_s = slider->maximum();
@@ -215,17 +229,26 @@ public:
     if (m_sliders.size() > 0)
       if constexpr (dim != 0xDEADBEEF && !std::is_same<T, bool>::value) {
         auto slider_to_value = [&](auto slider, auto fn) {
-          auto min_s = slider->minimum();
-          auto max_s = slider->maximum();
-          auto new_x = slider->value();
-          if (new_x == m_lastSliders[slider])
-            return fn(value);
-          auto slope = (m_maxValue - m_minValue) /
-                       (static_cast<decltype(fn(value))>(max_s - min_s));
-          auto output =
-              m_minValue +
-              slope * (new_x - static_cast<decltype(fn(value))>(min_s));
-          return fn(output);
+			if constexpr(std::is_integral_v<decltype(fn(value))>) {
+				//std::cout << value << std::endl;
+				auto output = slider->value();
+				//if (output == m_lastSliders[slider])
+				//	return fn(value);
+				return output;
+			}
+			else {
+				auto min_s = slider->minimum();
+				auto max_s = slider->maximum();
+				auto new_x = slider->value();
+				if (new_x == m_lastSliders[slider])
+					return fn(value);
+				auto slope = (m_maxValue - m_minValue) /
+					(static_cast<decltype(fn(value))>(max_s - min_s));
+				auto output =
+					m_minValue +
+					slope * (new_x - static_cast<decltype(fn(value))>(min_s));
+				return fn(output);
+			}
         };
         if constexpr (dim == 0)
           value = slider_to_value(m_sliders[0], [](auto v) { return v; });

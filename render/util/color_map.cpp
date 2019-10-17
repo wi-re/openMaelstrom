@@ -53,7 +53,6 @@ void colorMap::update() {
 
     old_colormap = get<parameters::render_colormap>();
 
-	std::string file_name = resolveFile(std::string("cfg/") + get<parameters::render_colormap>() + ".png").string();
     //std::string file_name = root_folder + get<parameters::render_colormap>() + ".png";
     QImage img(1024, 1, QImage::Format_RGB32);
     //std::cout << file_name << " exists: " << fs::exists(file_name) << std::endl;
@@ -61,18 +60,25 @@ void colorMap::update() {
       img.setPixel(QPoint(it, 0), qRgb((float)it / (float)img.width() * 256.f,
                                        (float)it / (float)img.width() * 256.f,
                                        (float)it / (float)img.width() * 256.f));
-
-    if (std::experimental::filesystem::exists(file_name))
-      img.load(QString(file_name.c_str()));
-
-    color_map = (QVector4D *)realloc(color_map, sizeof(QVector4D) * (img.width() + 1));
+	try {
+		std::string file_name = resolveFile(std::string("cfg/") + get<parameters::render_colormap>() + ".png").string();
+		if (std::experimental::filesystem::exists(file_name)) {
+			//std::cout << "Loading " << file_name << std::endl;
+			img = QImage(QString::fromStdString(file_name));
+			//img.load(QString(file_name.c_str()));
+			//std::cout << img.width() << " : " << img.height() << std::endl;
+		}
+	}
+	catch (...) {}
+    color_map = (QVector4D *)realloc(color_map, sizeof(QVector4D) * (img.width()));
     for (int32_t it = 0; it < img.width(); ++it) {
-      QRgb col = img.pixel(QPoint(it, 0));
-      color_map[it] = QVector4D{(float)qRed(col) / 256.f, (float)qGreen(col) / 256.f,
-                                (float)qBlue(col) / 256.f, 1.f};
-		if(it == img.width()-1)
-			color_map[it + 1] = QVector4D{ (float)qRed(col) / 256.f, (float)qGreen(col) / 256.f,
-			(float)qBlue(col) / 256.f, 1.f };
+      QColor col = img.pixelColor(QPoint(it, 1));
+      color_map[it] = QVector4D{(float)(col.red()) / 256.f, (float)(col.green()) / 256.f,
+                                (float)(col.blue()) / 256.f, 1.f};
+	  //std::cout << color_map[it].x() << " : " << color_map[it].y() << " : " << color_map[it].z() << std::endl;
+		//if(it == img.width()-1)
+		//	color_map[it + 1] = QVector4D{ (float)(col.red()) / 256.f, (float)(col.green()) / 256.f,
+		//	(float)(col.blue()) / 256.f, 1.f };
     }
 	
     color_map_elements = img.width();

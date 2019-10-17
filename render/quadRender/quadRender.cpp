@@ -33,11 +33,11 @@ void main(){
 }
 )";
 
-bool QuadRender::valid() { return true; }
 
-void QuadRender::update() {}
+void QuadRender::updateRTX() {}
 
-QuadRender::QuadRender(OGLWidget *parent) {
+QuadRender::QuadRender(OGLWidget *parent) : RTXRender(parent) {
+	if (get<parameters::rayTracing>() == false) return;
   auto h_scene = hostScene();
   cudaMalloc(&accumulatebuffer, h_scene.width * h_scene.height * sizeof(float3));
 
@@ -164,7 +164,8 @@ public:
 	void getAtt(size_t n, openvdb::Index32& att) const { att = openvdb::Index32(n); }
 };
 
-void QuadRender::render() {
+void QuadRender::renderRTX(bool pretty, int32_t fn, int32_t s) {
+	if (get<parameters::rayTracing>() == false) return;
   static std::random_device r;
   static std::default_random_engine e1(r());
   static std::uniform_int_distribution<int32_t> uniform_dist(INT_MIN, INT_MAX);
@@ -440,8 +441,8 @@ void QuadRender::prepCUDAscene() {
 	//auto scenefile = "C:/dev/source/openMaelstrom/Configurations/DamBreak/Volumes/pillars.obj";
 	//loader.appendObject(scenefile);
 
-	auto boundaryvolumes = get<parameters::boundary_volumes>();
-	for (auto& b : boundaryvolumes) {
+	auto boundaryVolumes = get<parameters::boundaryVolumes>();
+	for (auto& b : boundaryVolumes) {
 		loader.appendObject(b.fileName.value);
 	}
   objects = loader.mergeMeshes();

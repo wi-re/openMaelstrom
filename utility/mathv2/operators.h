@@ -1,6 +1,6 @@
 #pragma once
-#include "math.h"
-#include "utility/mathv2/get.h"
+#include <utility/mathv2.h>
+#include <utility/mathv2/get.h>
 #include <iomanip>
 
 #define OPERATOR_NEWER(op)                                                                         \

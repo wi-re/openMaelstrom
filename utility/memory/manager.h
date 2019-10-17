@@ -183,7 +183,7 @@ struct MemoryManager {
 	template <typename P, typename U> void deallocate([[maybe_unused]] P arr, U &memory) {
 		using mem_t = std::decay_t<decltype(P::get_member(memory))>;
 		mem_t ptr = (mem_t)P::ptr;
-		if (P::variableName == get<parameters::render_buffer>())
+		if (P::variableName == get<parameters::render_buffer>() || P::qualifiedName == get<parameters::render_buffer>())
 			return;
 		for(const auto& str : persistentArrays){
 			if(P::variableName == str)

@@ -8,7 +8,7 @@ class volumeBoundaryRender : public Renderer {
 public:
   volumeBoundaryRender(OGLWidget *parent);
   virtual void update() override;
-  virtual void render() override;
+  virtual void render(bool pretty) override;
   virtual bool valid() override;
 
   cudaGraphicsResource *cuda_vbo_resource;

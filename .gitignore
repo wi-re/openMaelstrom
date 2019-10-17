@@ -3,3 +3,8 @@
 *.bvh
 *.abc
 **/backup
+*.mp4
+build
+*.dump
+*.mkv
+/.vs

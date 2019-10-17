@@ -1,12 +1,11 @@
-#pragma once
 #include <utility/include_all.h>
 #include <utility/generation.h>
 
 namespace generation{    
 std::vector<vdb::Vec4f> ObjToShell(fs::path path, float r, float threshold) {
   auto [points, planes, edges, min, max] = fileToObj(path);
-  auto edgeToPos = [&](Edge e) { return std::make_pair(points[e.start], points[e.end]); };
-  auto planeToPos = [&](Triangle p) { return std::make_tuple(points[p.i0], points[p.i1], points[p.i2]); };
+  auto edgeToPos = [&, points = points](Edge e) { return std::make_pair(points[e.start], points[e.end]); };
+  auto planeToPos = [&, points = points](Triangle p) { return std::make_tuple(points[p.i0], points[p.i1], points[p.i2]); };
   auto v = PI4O3 * math::power<3>(r);
   auto [spacing, h, H] = getPacking(r);
   spacing = math::power<ratio<1, 3>>(v) * 1.05f;

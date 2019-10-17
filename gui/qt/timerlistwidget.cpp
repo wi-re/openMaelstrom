@@ -9,6 +9,7 @@ TimerListWidget::TimerEntry::TimerEntry(Timer *t, QWidget *parent)
   QVBoxLayout *vbx = new QVBoxLayout;
   setLayout(vbx);
 
+  vbx->addWidget(m_lastLabel = new QLabel());
   vbx->addWidget(m_minmaxLabel = new QLabel());
   vbx->addWidget(m_avgdevLabel = new QLabel());
 
@@ -20,6 +21,8 @@ TimerListWidget::TimerEntry::TimerEntry(Timer *t, QWidget *parent)
 
 void TimerListWidget::TimerEntry::updateLabels() {
   auto t = m_referenceTimer;
+  m_lastLabel->setText(QString("")
+	  .append(QString::number(static_cast<float>((t->getSamples().end() - 2)->second), 'f', 2)).append(QString("ms")));
   m_minmaxLabel->setText(
       QString("med: ")
           .append(QString::number(static_cast<float>(t->getMin()), 'f', 2))

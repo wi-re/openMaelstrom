@@ -2,99 +2,100 @@
   "functions":{
     "dfsph": {
       "description": "Module used to implement a Divergence Free SPH (DFSPH) Solver. This solver is not very stable although it follows the paper as close as reasonably possible.",
-      "folder": "pressure",
+      "folder": "DFSPH",
       "name": "DFSPH",
       "target": "cuda",
       "units": true,
-      "cell_info": false,
+      "cell_info": true,
       "virtual_info": true,
       "boundaryInfo": true,
       "neighbor_info": true,
       "functions": [ "density_solve", "divergence_solve" ],
-      "depends_any": [ { "pressure": "DFSPH" } ],
-      "parameters": [ "eta", "iterations", "density_error", "dfsph_iterations", "dfsph_density_error", "dfsph_density_eta", "dfsph_divergence_eta" ],
-      "input": [ "position", "density", "volume" ],
-      "temporary": [ "dfsphDpDt", "dfsphAlpha", "dfsphRhoStar" ],
-      "output": [ "acceleration" ],
-      "swap": [ "velocity", "dfsphKappa", "dfsphKappaDivergence" ]
+      "parameters": [ "blendSteps", "boundaryViscosity" ],
+      "depends_any": [ { "modules::pressure": "DFSPH" } ],
+      "input": [ "position", "density", "fluidDensity" ],
+      "temporary": [ "dfsphSource", "dfsphAlpha", "apparentVolume", "predictedAcceleration", "dfsphDpDt", "dfsphRhoStar" ],
+      "output": [ "acceleration", "boundaryPressure", "volume", "volumeBoundaryAcceleration", "volumeBoundaryAngularAcceleration","lifetime" ],
+      "swap": [ "velocity", "pressure" ]
     }
   },
   "arrays":{
-    "dfsphArrays":{
-      "dfsphDpDt": {
+    "dfsphArrays": {
+      "dfsphSource": {
         "description": "Density change with respect to time estimated for DFSPH solver.",
         "type": "float",
-        "unit": "SI::derived_unit<SI::density,SI::Hz>",
-        "depends_any": [ { "pressure": "DFSPH" } ],
+        "unit": "void",
+        "depends_any": [ { "modules::pressure": "DFSPH" } ],
         "kind": "particleData"
       },
       "dfsphAlpha": {
         "description": "Common factor used in the solve step of both density and divergence of DFSPH.",
         "type": "float",
-        "unit": "SI::derived_unit < SI::area, SI::recip<SI::density>>",
-        "depends_any": [ { "pressure": "DFSPH" } ],
+        "unit": "SI::derived_unit<SI::recip<SI::Pa>>",
+        "depends_any": [ { "modules::pressure": "DFSPH" } ],
+        "kind": "particleData"
+      },
+      "dfsphDpDt": {
+        "description": "Estimated density including advection forces at the new timestep.",
+        "type": "float",
+        "unit": "SI::Hz",
+        "depends_any": [ { "modules::pressure": "DFSPH" } ],
         "kind": "particleData"
       },
       "dfsphRhoStar": {
         "description": "Estimated density including advection forces at the new timestep.",
         "type": "float",
         "unit": "void",
-        "depends_any": [ { "pressure": "DFSPH" } ],
+        "depends_any": [ { "modules::pressure": "DFSPH" } ],
         "kind": "particleData"
-      },
-      "dfsphKappa": {
-        "description": "Stiffness parameter of the incompressibility solver, contains the old value in the new timestep for a warm start.",
-        "type": "float",
-        "unit": " SI::derived_unit < SI::area, SI::recip_2<SI::s>>",
-        "depends_any": [ { "pressure": "DFSPH" } ],
-        "kind": "particleData", 
-        "size": 1,
-        "swap": true, 
-        "resort": true
-      },
-      "dfsphKappaDivergence": {
-        "description": "Stiffness parameter of the divergence free solver, contains the old value in the new timestep for a warm start.",
-        "type": "float",
-        "unit": " SI::derived_unit < SI::area, SI::recip_2<SI::s>>",
-        "depends_any": [ { "pressure": "DFSPH" } ],
-        "kind": "particleData",
-        "size": 1,
-        "swap": true,
-        "resort": true
       }
     }
   },
   "uniforms":{
-    "dfsph_settings":{
-      "density_error": {
-        "identifier": "dfsph_density_error",
+    "dfsph_settings": {
+      "densityError": {
+        "identifier": "densityError",
         "name": "Contains the average density error of the last solve step in percent.",
         "type": "float",
         "unit": "none",
         "default": "0.f"
       },
-      "iterations": {
-        "identifier": "dfsph_iterations",
+      "divergenceError": {
+        "identifier": "divergenceError",
+        "name": "Contains the average density error of the last solve step in percent.",
+        "type": "float",
+        "unit": "SI::Hz",
+        "default": "0.f"
+      },
+      "densitySolverIterations": {
+        "identifier": "densitySolverIterations",
         "name": "Contains the number of iterations for the DFSPH solver.",
         "type": "int32_t",
         "unit": "none",
         "default": "0"
       },
-      "eta": {
-        "identifier": "dfsph_density_eta",
+      "divergenceSolverIterations": {
+        "identifier": "divergenceSolverIterations",
+        "name": "Contains the number of iterations for the DFSPH solver.",
+        "type": "int32_t",
+        "unit": "none",
+        "default": "0"
+      },
+      "densityEta": {
+        "identifier": "densityEta",
         "name": "Maximum average density error allowed for the incompressibility solver in percent. Useful value: 0.01f.",
         "type": "float",
         "const": false,
         "unit": "none",
-        "default": "0.1f"
+        "default": "0.0001f"
       },
-      "eta_divergence": {
-        "identifier": "dfsph_divergence_eta",
+      "divergenceEta": {
+        "identifier": "divergenceEta",
         "name": "Maximum average density error allowed for the divergence free solver in percent. Useful value: 0.01f.",
         "type": "float",
         "const": false,
-        "unit": "none",
-        "default": "0.1f"
+        "unit": "SI::Hz",
+        "default": "0.001f"
       }
     }    
   }

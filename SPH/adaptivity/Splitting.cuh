@@ -1,4 +1,5 @@
 #pragma once 
+#define OLD_STYLE
 #include <SPH/adaptivity/ContinuousAdaptivity.cuh>
 #include <utility/include_all.h>
 #include <SPH/adaptivity/Patterns.cuh>
@@ -25,7 +26,7 @@ template <int32_t split_count, typename... Ts>
 hostDeviceInline void initialize_particles(SPH::adaptive::Memory &arrays, Ts... tup) {
   checkedParticleIdx(i);
 
-  cuda_atomic<int32_t> num_ptcls(arrays.adaptiveNumPtcls);
+  cuda_atomic<int32_t> num_ptcls(arrays.ptclCounter);
   int32_t split_idx = num_ptcls.add(split_count - 1);
   if (split_idx > arrays.max_numptcls - split_count - 1) {
     num_ptcls.sub(split_count);
@@ -33,38 +34,47 @@ hostDeviceInline void initialize_particles(SPH::adaptive::Memory &arrays, Ts... 
   }
 
   float w = 1.f / ((float)split_count);
-  auto x_i = arrays.position[i];
-  auto V_i = arrays.volume[i];
-  auto V_s = arrays.volume[i] * w;
+  auto x_i = arrays.position.first[i];
+  auto V_i = arrays.volume.first[i];
+  auto V_s = arrays.volume.first[i] * w;
+
   auto r = math::power<ratio<1, 3>>(V_i * PI4O3_1);
+#ifdef EIGENADAPTIVE
+  float hl = x_i.val.w;
+  float target_neighbors = kernelNeighbors();
+  float kernel_epsilon = (1.f) * powf((target_neighbors)*PI4O3_1, 1.f / 3.f) / kernelSize();
+  float rl = powf(math::cubic(hl / kernel_epsilon) / PI4O3, 1.f/3.f);
+  float factor = 0.2714417278766632f / rl;
+  r.val = 1.f / factor;
+#endif
   auto h = support_from_volume(V_s);
-  auto t_0 = -arrays.blendsteps * arrays.timestep;
+  auto t_0 = -arrays.blendSteps * arrays.timestep;
   int32_t parent_idx = split_idx + i;
 
   for (int j = 0; j < split_count - 1; ++j) {
-    auto x_j = x_i + get_position<split_count>(j) * r;
+    auto x_j = x_i + get_position<split_count>(j) *h;
     math::unit_assign<4>(x_j, h);
 
     uint32_t new_idx = split_idx + j;
     copyValue(new_idx, i, tup...);
 
-    arrays.position[new_idx] = x_j;
-    arrays.volume[new_idx] = V_s;
+    arrays.position.first[new_idx] = x_j;
+    arrays.volume.first[new_idx] = V_s;
     arrays.lifetime[new_idx] = t_0;
-    arrays.adaptiveSplitIndicator[new_idx] = 1;
-    arrays.adaptiveParentPosition.first[new_idx] = x_i;
-    arrays.adaptiveParentIndex.first[new_idx] = parent_idx;
-    arrays.adaptiveParentVolume[new_idx] = V_i;
+    arrays.splitIndicator[new_idx] = 1;
+    arrays.parentPosition.first[new_idx] = x_i;
+    arrays.parentIndex.first[new_idx] = parent_idx;
+    arrays.parentVolume[new_idx] = V_i;
   }
 
-  auto x_j = x_i + get_position<split_count>(split_count - 1) * r;
+  auto x_j = x_i + get_position<split_count>(split_count - 1) * h;
   math::unit_assign<4>(x_j, h);
-  arrays.adaptiveSplitIndicator[i] = 1;
-  arrays.adaptiveParentPosition.first[i] = x_i;
-  arrays.adaptiveParentIndex.first[i] = parent_idx;
-  arrays.adaptiveParentVolume[i] = arrays.volume[i];
-  arrays.position[i] = x_j;
-  arrays.volume[i] = V_s;
+  arrays.splitIndicator[i] = 1;
+  arrays.parentPosition.first[i] = x_i;
+  arrays.parentIndex.first[i] = parent_idx;
+  arrays.parentVolume[i] = arrays.volume.first[i];
+  arrays.position.first[i] = x_j;
+  arrays.volume.first[i] = V_s;
   arrays.lifetime[i] = t_0;
 }
 
@@ -83,9 +93,9 @@ templateFunctionType splitParticles(SPH::adaptive::Memory arrays, Ts... tup) {
 	int32_t decision = static_cast<int32_t>(arrays.adaptiveClassification[i]);
 	
 	if (decision > 1) {
-//		uint indicator = arrays.adaptiveSplitIndicator[i];
-			arrays.adaptiveSplitIndicator[i] += 1;
-		if (arrays.adaptiveSplitIndicator[i]  < 13) {
+//		uint indicator = arrays.splitIndicator[i];
+			arrays.splitIndicator[i] += 1;
+		if (arrays.splitIndicator[i]  < 13) {
 			return;
 		}
 		switch (decision) {
@@ -108,7 +118,7 @@ templateFunctionType splitParticles(SPH::adaptive::Memory arrays, Ts... tup) {
 		}
 	}
 	else {
-			arrays.adaptiveSplitIndicator[i] = 2;
+			arrays.splitIndicator[i] = 2;
 	}
 }
 

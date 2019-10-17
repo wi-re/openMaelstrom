@@ -105,8 +105,9 @@ QString console::messageToString(log_level level,
 	  sstream << R"(<font color="grey">VERBOSE: )";
 	  break;
   }
+  
   sstream << "</font> " << tm->tm_hour << ":" << tm->tm_min << ":" << tm->tm_sec
-          << " -> " << message << R"(<br>)";
+          << " -> " << (QString::fromStdString(message).toHtmlEscaped()).toStdString() << R"(<br>)";
   return QString::fromStdString(sstream.str());
 }
 
